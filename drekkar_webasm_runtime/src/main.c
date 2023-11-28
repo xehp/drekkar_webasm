@@ -137,19 +137,19 @@ static int test_drekkar_webasm_runtime(wa_env_type *e)
 
 	}
 
-	long r = wa_env_init(e);
+	long r = drekkar_wa_env_init(e);
 	if (r != 0)
 	{
 		printf("wa_env_init failed %ld\n", r);
 	}
 	else
 	{
-		r = wa_env_tick(e);
+		r = drekkar_wa_env_tick(e);
 		if (r != 0)
 		{
 			printf("wa_env_tick failed %ld\n", r);
 		}
-		wa_env_deinit(e);
+		drekkar_wa_env_deinit(e);
 	}
 	return 0;
 }

@@ -204,24 +204,6 @@ void* drekkar_linear_storage_size_top(drekkar_linear_storage_size_type *s);
 #endif
 
 
-#if 0
-// Or should we only use EXIT_SUCCESS / EXIT_FAILURE?
-enum
-{
-	NORMAL_EXIT = 0,
-	NO_SERIAL_PORT_EXIT = 1,
-	SIGNAL_HANDLER_EXIT = 2,
-	ERROR_CREATING_THREAD_EXIT = 3,
-	FILE_SYSTEM_USAGE_FAIL_EXIT = 4,
-	SHUTDOWN_ORDER_FROM_WEB = 5,
-};
-
-int st_kill_rival(const char *s_http_port, int auto_kill_rival);
-void st_main_prog_exit(int exitCode);
-int st_is_signal_received();
-void st_set_signal_received(int sig);
-#endif
-
 int64_t drekkar_st_get_time_us();
 void drekkar_st_init();
 
@@ -229,16 +211,15 @@ void drekkar_st_init();
 
 // Here are some functions and macros to help debugging memory leaks.
 // Performance will be affected.
-// Define macro ST_DEBUG to get more debugging info.
+// Define macro DREKKAR_ST_DEBUG to get more debugging info.
 // Or define macro NDEBUG to get less.
 // For medium level do not define any of the two.
-// WARNING ST_DEBUG is not thread safe. So do not use ST_DEBUG if multi threading is used.
-
-#define ST_DEBUG
+// WARNING DREKKAR_ST_DEBUG is not thread safe. So do not use DREKKAR_ST_DEBUG if multi threading is used.
+//#define DREKKAR_ST_DEBUG
 //#define NDEBUG
 
 
-#ifndef ST_DEBUG
+#ifndef DREKKAR_ST_DEBUG
 
 void* drekkar_st_malloc(size_t size);
 void* drekkar_st_calloc(size_t num, size_t size);
@@ -251,15 +232,15 @@ int drekkar_st_is_valid_min(const void* ptr, size_t size);
 size_t drekkar_st_size(const void* ptr);
 
 #ifndef NDEBUG
-#define DREKKAR_ST_MALLOC(size) st_malloc(size)
+#define DREKKAR_ST_MALLOC(size) drekkar_st_malloc(size)
 #define DREKKAR_ST_CALLOC(num, size) drekkar_st_calloc(num, size)
 #define DREKKAR_ST_FREE(ptr) {drekkar_st_free(ptr); ptr = NULL;}
 #define DREKKAR_ST_ASSERT_SIZE(ptr, size) assert(st_is_valid(ptr, size))
-#define DREKKAR_ST_RESIZE(ptr, old_size, new_size) st_resize(ptr, old_size, new_size);
-#define DREKKAR_ST_ASSERT_MIN(ptr, size) assert(st_is_valid_min(ptr, size))
-#define DREKKAR_ST_FREE_SIZE(ptr, size) {assert(st_is_valid(ptr, size)); drekkar_st_free(ptr); ptr = NULL;}
-#define DREKKAR_ST_REALLOC(ptr, new_size) st_realloc(ptr, new_size);
-#define ST_RECALLOC(ptr, old_num, new_num, size) st_recalloc(ptr, old_num, new_num, size);
+#define DREKKAR_ST_RESIZE(ptr, old_size, new_size) drekkar_st_resize(ptr, old_size, new_size);
+#define DREKKAR_ST_ASSERT_MIN(ptr, size) assert(drekkar_st_is_valid_min(ptr, size))
+#define DREKKAR_ST_FREE_SIZE(ptr, size) {assert(drekkar_st_is_valid_size(ptr, size)); drekkar_st_free(ptr); ptr = NULL;}
+#define DREKKAR_ST_REALLOC(ptr, new_size) drekkar_st_realloc(ptr, new_size);
+#define ST_RECALLOC(ptr, old_num, new_num, size) drekkar_st_recalloc(ptr, old_num, new_num, size);
 #else
 #define DREKKAR_ST_MALLOC(size) malloc(size);
 #define DREKKAR_ST_CALLOC(num, size) calloc(num, size)

@@ -92,9 +92,9 @@
 #define WASI_ENOTCAPABLE     (UINT16_C(76))
 
 
-typedef struct wa_env_type wa_env_type;
+typedef struct drekkar_wa_env_type wa_env_type;
 
-struct wa_env_type
+struct drekkar_wa_env_type
 {
 	char file_name[PATH_MAX];
 	drekkar_linear_storage_8_type bytes;
@@ -105,6 +105,6 @@ struct wa_env_type
 
 
 //void* ewasi_find(const char* sym);
-long wa_env_init(wa_env_type *e);
-long wa_env_tick(wa_env_type *e);
-void wa_env_deinit(wa_env_type *);
+long drekkar_wa_env_init(wa_env_type *e);
+long drekkar_wa_env_tick(wa_env_type *e);
+void drekkar_wa_env_deinit(wa_env_type *);
