@@ -8,4 +8,5 @@ log*
 a.out
 a.out.*
 .settings
-
+.cproject
+.project
