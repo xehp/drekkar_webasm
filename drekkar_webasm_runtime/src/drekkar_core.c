@@ -1201,10 +1201,10 @@ static uint8_t leb_read_uint8(drekkar_leb128_reader_type *r)
 static const char *leb_read_string(drekkar_leb128_reader_type *r, size_t *len)
 {
     uint32_t str_len = leb_read(r, 32);
+    if (len) { *len = str_len;}
     if(str_len > (r->nof - r->pos)) {return NULL;}
     const char * str = (const char *)(r->array + r->pos);
     r->pos += str_len;
-    if (len) { *len = str_len;}
     return str;
 }
 

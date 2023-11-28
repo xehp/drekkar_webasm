@@ -32,7 +32,7 @@ DEBUG= true
 
 # Flags to be passed on to the C compiler and/or linker.
 ifneq ($(TARGET),WIN32)
-CFLAGS= -Werror -Wall -Wno-format-truncation -Wno-error=unused-function -Wno-error=unused-but-set-variable -Wno-error=unused-variable -I. -std=gnu11 
+CFLAGS= -Werror -Wall -Wno-format-truncation -Wno-error=unused-function -Wno-error=unused-but-set-variable -Wno-error=unused-variable -Werror=maybe-uninitialized -I. -std=gnu11 
 LDFLAGS= -lm
 else
 #CFLAGS= -I. -std=c99 -m32 -DEWOULDBLOCK=WSAEWOULDBLOCK
