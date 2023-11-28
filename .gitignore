@@ -1,0 +1,11 @@
+obj/**.o
+obj/**.d
+obj
+.metadata
+*.bin
+log*
+*/.settings/language.settings.xml
+a.out
+a.out.*
+.settings
+
