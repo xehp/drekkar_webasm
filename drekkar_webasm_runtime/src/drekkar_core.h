@@ -685,7 +685,7 @@ void drekkar_wa_data_init(drekkar_wa_data *d);
 void drekkar_wa_data_deinit(drekkar_wa_data *d);
 long drekkar_wa_set_command_line_arguments(drekkar_wa_data *d, uint32_t argc, const char **argv);
 void* drekkar_wa_translate_to_host_addr_space(drekkar_wa_data *d, uint32_t offset, size_t size);
-void drekkar_wa_register_function(drekkar_wa_prog *p, const char* name, void* ptr);
+void drekkar_wa_register_function(drekkar_wa_prog *p, const char* name, drekkar_wa_func_ptr ptr);
 
 void drekkar_wa_push_value_i64(drekkar_wa_data *d, int64_t v);
 int32_t drekkar_wa_pop_value_i64(drekkar_wa_data *d);

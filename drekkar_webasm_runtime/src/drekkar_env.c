@@ -86,7 +86,7 @@ static void wa_fd_write(drekkar_wa_data *d)
 	//printf("iovs_len %d\n", iovs_len);
 
 	assert((fd>=1) && (fd<=2));
-	for(int i=0; i< iovs_len; ++i)
+	for(unsigned int i=0; i < iovs_len; ++i)
 	{
 		wa_ciovec_type *v = &iovs_offset_ptr[i];
 
@@ -141,9 +141,9 @@ static void setTempRet0(drekkar_wa_data *d)
 }
 
 // Not tested.
-static uint64_t getTempRet0(drekkar_wa_data *d)
+static void getTempRet0(drekkar_wa_data *d)
 {
-	return d->temp_value;
+	drekkar_wa_push_value_i64(d, d->temp_value);
 }
 
 // Import 0x2 'emscripten_resize_heap'  param i32, result i32
@@ -188,6 +188,7 @@ void test_log(drekkar_wa_data *d)
 // Test function, remove later.
 void test_hello(drekkar_wa_data *d)
 {
+	(void)d;
 	printf("Hello!\n");
 }
 

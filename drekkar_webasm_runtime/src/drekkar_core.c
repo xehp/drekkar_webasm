@@ -4544,7 +4544,7 @@ long drekkar_wa_call_exported_function(const drekkar_wa_prog *p, drekkar_wa_data
 
 // Environment shall call this to register all available functions.
 // That is functions the WebAsm program can import.
-void drekkar_wa_register_function(drekkar_wa_prog *p, const char *name, void *ptr)
+void drekkar_wa_register_function(drekkar_wa_prog *p, const char *name, drekkar_wa_func_ptr ptr)
 {
 	drekkar_hash_list_put(&p->available_functions_list, name, ptr);
 }

@@ -31,6 +31,7 @@ CC=gcc
 DEBUG= true
 
 # Flags to be passed on to the C compiler and/or linker.
+# Occationally test with: -Wpedantic -Wextra
 ifneq ($(TARGET),WIN32)
 CFLAGS= -Werror -Wall -Wno-format-truncation -Wno-error=unused-function -Wno-error=unused-but-set-variable -Wno-error=unused-variable -Werror=maybe-uninitialized -I. -std=gnu11 
 LDFLAGS= -lm
