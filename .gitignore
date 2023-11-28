@@ -10,3 +10,5 @@ a.out.*
 .settings
 .cproject
 .project
+drekkar_webasm_runtime
+
