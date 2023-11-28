@@ -122,7 +122,7 @@ static int find_root_dir(const char* test_code_dir_name, char *actual_path, size
 }
 
 
-static int test_drekkar_webasm_runtime(wa_env_type *e)
+static int test_drekkar_webasm_runtime(drekkar_wa_env_type *e)
 {
 	if (e->file_name[0]==0)
 	{
@@ -156,7 +156,7 @@ static int test_drekkar_webasm_runtime(wa_env_type *e)
 
 int main(int argc, char** argv)
 {
-	wa_env_type e = {0};
+	drekkar_wa_env_type e = {0};
 
 	/* Parse the command line arguments. */
 	int n = 1;

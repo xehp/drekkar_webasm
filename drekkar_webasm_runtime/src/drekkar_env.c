@@ -386,7 +386,7 @@ static long find_and_call(const drekkar_wa_prog *p, drekkar_wa_data *d)
 }
 
 // Returns zero (WA_OK) if OK.
-long drekkar_wa_env_init(wa_env_type *e)
+long drekkar_wa_env_init(drekkar_wa_env_type *e)
 {
 	long r = 0;
 	char exception[256] = {0};
@@ -417,7 +417,7 @@ long drekkar_wa_env_init(wa_env_type *e)
 	return r;
 }
 
-long drekkar_wa_env_tick(wa_env_type *e)
+long drekkar_wa_env_tick(drekkar_wa_env_type *e)
 {
 	long r = 0;
 
@@ -440,7 +440,7 @@ long drekkar_wa_env_tick(wa_env_type *e)
 	return r;
 }
 
-void drekkar_wa_env_deinit(wa_env_type *e)
+void drekkar_wa_env_deinit(drekkar_wa_env_type *e)
 {
 	drekkar_wa_prog_deinit(e->p);
 	drekkar_linear_storage_8_deinit(&e->bytes);
