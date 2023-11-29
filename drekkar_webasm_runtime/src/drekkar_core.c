@@ -1227,13 +1227,13 @@ static size_t leb_len(const uint8_t *ptr)
 
 // Unsure if elements section should be parsed as part of program or data.
 // Code is a little bit more complicated if its part of prog but it seems
-// tables can no change while running the program so it should be prog.
+// tables can not change while running the program so it should be prog.
 // Comment / Uncomment to change.
 //#define PARSE_ELEMENTS_IN_DATA
 
 // Some macros for convenient stack handling.
 
-#if (WA_STACK_SIZE == 0x10000) || (WA_STACK_SIZE == 0x100000000)
+#if (DREKKAR_STACK_SIZE == 0x10000) || (DREKKAR_STACK_SIZE == 0x100000000)
 #define SP_MASK(v) (v)
 #else
 #define SP_MASK(sp) ((sp) & (DREKKAR_STACK_SIZE - 1))
@@ -2070,7 +2070,7 @@ long drekkar_wa_tick(const drekkar_wa_prog *p, drekkar_wa_data *d)
 				// Restore stack pointer to what is was before block.
 				// The result if any is to remain on stack while local variables shall be dropped.
 				// So keep a number of entries on top of stack, drop everything in between.
-				#if WA_STACK_SIZE == 0x10000
+				#if DREKKAR_STACK_SIZE == 0x10000
 				int16_t entries_available_on_stack = (int16_t)(d->sp) - (int16_t)block->stack_pointer;
 				if (entries_available_on_stack >= t->nof_results)
 				{
