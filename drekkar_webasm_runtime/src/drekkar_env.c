@@ -287,6 +287,7 @@ static void report_result(const drekkar_wa_prog *p, drekkar_wa_data *d, const dr
 {
 	// If the called function had a return value it should be on the stack.
 	// Log the values on stack.
+	printf("Stack:\n");
 	while (d->sp != DREKKAR_SP_INITIAL) {
 		const drekkar_wa_func_type_type* type = drekkar_get_func_type_ptr(p, f->func_type_idx);
 		uint32_t nof_results = type->nof_results;
@@ -296,11 +297,11 @@ static void report_result(const drekkar_wa_prog *p, drekkar_wa_data *d, const dr
 			uint8_t t = type->results_list[d->sp];
 			char tmp[64];
 			drekkar_wa_value_and_type_to_string(tmp, sizeof(tmp), v, t);
-			printf("Stack: %s\n", tmp);
+			printf("  %s\n", tmp);
 		}
 		else
 		{
-			printf("Stack: 0x%llx\n", (long long)d->stack[d->sp].s64);
+			printf("  0x%llx\n", (long long)d->stack[d->sp].s64);
 		}
 		d->sp--;
 	}
@@ -312,26 +313,41 @@ static void report_result(const drekkar_wa_prog *p, drekkar_wa_data *d, const dr
 static long call_and_run_exported_function(const drekkar_wa_prog *p, drekkar_wa_data *d, const drekkar_wa_function *f)
 {
 	long r = drekkar_wa_call_exported_function(p, d, f->func_idx);
-	while (r == DREKKAR_WA_NEED_MORE_GAS)
+	for(;;)
 	{
-		r = drekkar_wa_tick(p, d);
-	}
+		if ((r != DREKKAR_WA_NEED_MORE_GAS) && (r != DREKKAR_WA_OK))
+		{
+			printf("exception %ld '%s'\n", r, d->exception);
+			assert(d->exception[sizeof(d->exception)-1]==0);
+			d->exception[0] = 0;
+			break;
+		}
+		else if (d->exception[0] != 0)
+		{
+			printf("Unhandled exception '%s'\n", d->exception);
+			d->exception[0] = 0;
+			break;
+		}
+		else if (r == DREKKAR_WA_NEED_MORE_GAS)
+		{
+			// TODO This is a good place to check that the guest does not use
+			// ridicules amounts of RAM (memory) and if it does kick it out.
+			/*printf("Memory usage: %zu + %zu + %zu  +  %zu + %zu + %zu\n",
+					d->memory.lower_mem.capacity,
+					d->memory.upper_mem.end - d->memory.upper_mem.begin,
+					d->memory.arguments.size,
+					d->globals.capacity * 8,
+					d->block_stack.capacity * sizeof(drekkar_block_stack_entry),
+					d->pc.nof);*/
 
-	if (r != DREKKAR_WA_OK)
-	{
-		printf("exception %ld '%s'\n", r, d->exception);
-		assert(d->exception[sizeof(d->exception)-1]==0);
-		d->exception[0] = 0;
-	}
-	else if (d->exception[0] != 0)
-	{
-		printf("Unhandled exception '%s'\n", d->exception);
-		d->exception[0] = 0;
-	}
-	else if (r == DREKKAR_WA_OK)
-	{
-		printf("WA_OK\n");
-		report_result(p,d, f);
+			// Guest has more work to do. Let it continue some more.
+			r = drekkar_wa_tick(p, d);
+		}
+		else if (r == DREKKAR_WA_OK)
+		{
+			report_result(p,d, f);
+			break;
+		}
 	}
 	return r;
 }

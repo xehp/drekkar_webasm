@@ -1711,6 +1711,7 @@ static long get_oplen(const uint8_t *ptr)
 				leb_read(&r, 32);
 			}
 			leb_read(&r, 32);
+			assert((1 + r.pos) < 0x10000);
 			return 1 + r.pos;
 		}
 		case 0x11:
@@ -3923,7 +3924,7 @@ long drekkar_wa_parse_prog_sections(drekkar_wa_prog *p, const uint8_t *bytes, ui
 
 					char tmp[256];
 					func_type_to_string(tmp, sizeof(tmp), type);
-					printf("Type %u %s\n", i, tmp);
+					D("Type %u %s\n", i, tmp);
 				}
 				break;
 			case 2:
@@ -4545,9 +4546,8 @@ long drekkar_wa_set_command_line_arguments(drekkar_wa_data *d, uint32_t argc, co
 long drekkar_wa_call_exported_function(const drekkar_wa_prog *p, drekkar_wa_data *d, uint32_t func_idx)
 {
 	long r = drekkar_wa_setup_function_call(p, d, func_idx);
-	if (r) return r;
-	r = drekkar_wa_tick(p, d);
-	return r;
+	if (r) {return r;}
+	return drekkar_wa_tick(p, d);
 }
 
 // Environment shall call this to register all available functions.
@@ -4650,7 +4650,13 @@ void drekkar_wa_data_deinit(drekkar_wa_data *d)
 	assert(d->exception[sizeof(d->exception)-1]==0);
 
 	// TODO We need to keep track of the amount of memory in use during runtime.
-	printf("Memory usage: %zu + %zu + %zu\n", d->memory.lower_mem.capacity, d->memory.upper_mem.end - d->memory.upper_mem.begin, d->memory.arguments.size);
+	printf("Memory usage: %zu + %zu + %zu  +  %zu + %zu + %zu\n",
+			d->memory.lower_mem.capacity,
+			d->memory.upper_mem.end - d->memory.upper_mem.begin,
+			d->memory.arguments.size,
+			d->globals.capacity * 8,
+			d->block_stack.capacity * sizeof(drekkar_block_stack_entry),
+			d->pc.nof);
 
 	drekkar_linear_storage_64_deinit(&d->globals);
 

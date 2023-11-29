@@ -44,7 +44,7 @@
 //    PATCH version when you make backward compatible bug fixes
 // Warning! We do not follow this at early stages when major is 0.
 #define DREKKAR_VERSION_MAJOR 0
-#define DREKKAR_VERSION_MINOR 1
+#define DREKKAR_VERSION_MINOR 2
 #define DREKKAR_VERSION_PATCH 0
 
 
@@ -663,7 +663,7 @@ struct drekkar_wa_data
 	drekkar_wa_value_type stack[DREKKAR_STACK_SIZE];
 
 	// The call and block stack.
-	drekkar_linear_storage_size_type block_stack; // Storage for entries of type WaFrame.
+	drekkar_linear_storage_size_type block_stack; // Storage for entries of type drekkar_block_stack_entry.
 
 	// Globals and memory
 	drekkar_linear_storage_64_type globals;
