@@ -179,14 +179,14 @@ void wa_args_sizes_get(Module *m)
 
 
 // Test function, remove later.
-void test_log(drekkar_wa_data *d)
+static void test_log(drekkar_wa_data *d)
 {
 	uint64_t n = drekkar_wa_pop_value_i64(d);
 	printf("log: %lld\n", (long long)n);
 }
 
 // Test function, remove later.
-void test_hello(drekkar_wa_data *d)
+static void test_hello(drekkar_wa_data *d)
 {
 	(void)d;
 	printf("Hello!\n");
@@ -194,7 +194,7 @@ void test_hello(drekkar_wa_data *d)
 
 // https://refspecs.linuxbase.org/LSB_5.0.0/LSB-Core-generic/LSB-Core-generic/baselib---assert-fail-1.html
 // void __assert_fail(const char * assertion, const char * file, unsigned int line, const char * function);
-void assert_fail(drekkar_wa_data *d)
+static void assert_fail(drekkar_wa_data *d)
 {
 	// param i32 i32 i32 i32
 	uint32_t func = drekkar_wa_pop_value_i64(d);
@@ -209,18 +209,25 @@ void assert_fail(drekkar_wa_data *d)
 	snprintf(d->exception, sizeof(d->exception), "Assertion failed: %.32s %.32s %u %.32s", cond_str, file_name, line, func_name);
 }
 
+static void drekkar_wrt_version(drekkar_wa_data *d)
+{
+	uint64_t v = ((uint64_t)DREKKAR_VERSION_MAJOR << 32) | (DREKKAR_VERSION_MINOR << 16) | DREKKAR_VERSION_PATCH;
+	drekkar_wa_push_value_i64(d, v);
+}
+
 // To tell the runtime which functions we have available for it to call.
 static void register_functions(drekkar_wa_prog *p)
 {
 	drekkar_wa_register_function(p, "fd_write", wa_fd_write);
+	drekkar_wa_register_function(p, "__assert_fail", assert_fail);
 	drekkar_wa_register_function(p, "emscripten_memcpy_big", wa_memcpy_big);
 	drekkar_wa_register_function(p, "emscripten_resize_heap", emscripten_resize_heap);
 	drekkar_wa_register_function(p, "emscripten_memcpy_js", wa_memcpy_big);
 	drekkar_wa_register_function(p, "setTempRet0", setTempRet0);
 	drekkar_wa_register_function(p, "getTempRet0", getTempRet0);
+	drekkar_wa_register_function(p, "drekkar_wrt_version", drekkar_wrt_version);
 	drekkar_wa_register_function(p, "test_log", test_log);
 	drekkar_wa_register_function(p, "test_hello", test_hello);
-	drekkar_wa_register_function(p, "__assert_fail", assert_fail);
 }
 
 static long parse_prog_sections(drekkar_wa_prog *p, uint8_t *bytes, size_t file_size, char* exception, size_t size_exception)

@@ -1882,15 +1882,11 @@ long drekkar_wa_tick(const drekkar_wa_prog *p, drekkar_wa_data *d)
 {
 	assert(d->block_stack.size != 0);
 
-	// TODO As a CPU optimization: Instead of counting every opcode we could
-	// change it to count only the control opcodes (0x00 ... 0x11).
+	// Regarding gas metering. As a CPU optimization: Instead of counting every
+	// opcode we only count the control opcodes (0x00 ... 0x11).
+	d->gas_meter = DREKKAR_GAS;
 
-	#ifdef WA_GAS
-	int gas_meter = DREKKAR_GAS;
-	while (gas_meter--)
-	#else
 	for(;;)
-	#endif
 	{
 		assert((d->pc.pos < d->pc.nof));
 		const uint8_t opcode = leb_read_uint8(&d->pc);
@@ -1905,6 +1901,7 @@ long drekkar_wa_tick(const drekkar_wa_prog *p, drekkar_wa_data *d)
 			case 0x01: // nop
 				// The nop instruction does nothing.
 				D("nop\n");
+				if (--d->gas_meter < 0) {return DREKKAR_WA_NEED_MORE_GAS;}
 				break;
 			case 0x02: // block
 			{
@@ -1937,6 +1934,7 @@ long drekkar_wa_tick(const drekkar_wa_prog *p, drekkar_wa_data *d)
 				}
 
 				D("block\n");
+				if (--d->gas_meter < 0) {return DREKKAR_WA_NEED_MORE_GAS;}
 				break;
 			}
 			case 0x03: // loop
@@ -1960,6 +1958,7 @@ long drekkar_wa_tick(const drekkar_wa_prog *p, drekkar_wa_data *d)
 					return DREKKAR_WA_VALUE_TYPE_NOT_SUPPORED_YET;
 				}
 				D("loop\n");
+				if (--d->gas_meter < 0) {return DREKKAR_WA_NEED_MORE_GAS;}
 				break;
 			}
 			case 0x04:
@@ -2035,6 +2034,7 @@ long drekkar_wa_tick(const drekkar_wa_prog *p, drekkar_wa_data *d)
 				}
 
 				D("if %u\n", cond);
+				if (--d->gas_meter < 0) {return DREKKAR_WA_NEED_MORE_GAS;}
 				break;
 			}
 			case 0x05: // else
@@ -2043,6 +2043,7 @@ long drekkar_wa_tick(const drekkar_wa_prog *p, drekkar_wa_data *d)
 				const drekkar_block_stack_entry *f = (drekkar_block_stack_entry*) drekkar_linear_storage_size_top(&d->block_stack);
 				d->pc.pos = f->if_else_info.end_addr;
 				D("else\n");
+				if (--d->gas_meter < 0) {return DREKKAR_WA_NEED_MORE_GAS;}
 				break;
 			}
 			case 0x0b: // end
@@ -2133,6 +2134,7 @@ long drekkar_wa_tick(const drekkar_wa_prog *p, drekkar_wa_data *d)
 					default: break;
 				}
 				D("end\n");
+				if (--d->gas_meter < 0) {return DREKKAR_WA_NEED_MORE_GAS;}
 				break;
 			}
 			case 0x0c: // br
@@ -2148,6 +2150,7 @@ long drekkar_wa_tick(const drekkar_wa_prog *p, drekkar_wa_data *d)
 				const drekkar_block_stack_entry *f = (drekkar_block_stack_entry*) drekkar_linear_storage_size_top(&d->block_stack);
 				d->pc.pos = f->block_and_loop_info.br_addr;
 				D("br\n");
+				if (--d->gas_meter < 0) {return DREKKAR_WA_NEED_MORE_GAS;}
 				break;
 			}
 			case 0x0d: // br_if
@@ -2174,6 +2177,7 @@ long drekkar_wa_tick(const drekkar_wa_prog *p, drekkar_wa_data *d)
 				{
 					/* do nothing, will just continue with next opcode. */
 				}
+				if (--d->gas_meter < 0) {return DREKKAR_WA_NEED_MORE_GAS;}
 				break;
 			}
 			case 0x0e: // br_table
@@ -2216,6 +2220,7 @@ long drekkar_wa_tick(const drekkar_wa_prog *p, drekkar_wa_data *d)
 
 				DREKKAR_ST_FREE(a);
 				D("br_table\n");
+				if (--d->gas_meter < 0) {return DREKKAR_WA_NEED_MORE_GAS;}
 				break;
 			}
 			case 0x0f: // return
@@ -2251,6 +2256,7 @@ long drekkar_wa_tick(const drekkar_wa_prog *p, drekkar_wa_data *d)
 				}
 
 				D("return\n");
+				if (--d->gas_meter < 0) {return DREKKAR_WA_NEED_MORE_GAS;}
 				break;
 			}
 			case 0x10: // call
@@ -2274,6 +2280,7 @@ long drekkar_wa_tick(const drekkar_wa_prog *p, drekkar_wa_data *d)
 						return r;
 					}
 				}
+				if (--d->gas_meter < 0) {return DREKKAR_WA_NEED_MORE_GAS;}
 				break;
 			}
 			case 0x11: // call_indirect
@@ -2343,6 +2350,7 @@ long drekkar_wa_tick(const drekkar_wa_prog *p, drekkar_wa_data *d)
 					if (r) {return DREKKAR_WA_INDIRECT_CALL_FAILED;}
 				}
 				D("call_indirect %u %u %u %u\n", typeidx, tableidx, idx_into_table, (unsigned int)function_idx);
+				if (--d->gas_meter < 0) {return DREKKAR_WA_NEED_MORE_GAS;}
 				break;
 			}
 
@@ -2667,7 +2675,7 @@ long drekkar_wa_tick(const drekkar_wa_prog *p, drekkar_wa_data *d)
 				}
 				SET_U32(d, current_size_in_pages);
 				D("grow_memory %u %u\n", current_size_in_pages, requested_increase);
-
+				if (--d->gas_meter < 0) {return DREKKAR_WA_NEED_MORE_GAS;}
 				break;
 			}
 

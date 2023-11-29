@@ -85,8 +85,6 @@ static void print_version(const char* name) {
 /* Find test_code dir, start at current directory and search upwards until it is found. */
 static int find_root_dir(const char* test_code_dir_name, char *actual_path, size_t actual_path_size)
 {
-
-
 	int n = 0;
 	char publicPath[PATH_MAX+1]="";
 	char publicPathAndName[PATH_MAX+1]="";
@@ -132,7 +130,7 @@ static int test_drekkar_webasm_runtime(drekkar_wa_env_type *e)
 		#ifdef RUN_TEST_WASM
 		snprintf(e->file_name, sizeof(e->file_name), "%s/" RUN_TEST_WASM ".wasm", path);
 		#else
-		snprintf(e->file_name, sizeof(e->file_name), "%s/a.out.wasm", path);
+		snprintf(e->file_name, sizeof(e->file_name), "%s/hello_world.wasm", path);
 		#endif
 
 	}
