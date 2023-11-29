@@ -13,6 +13,7 @@
 
 #include "drekkar_core.h"
 
+
 #define WASI_ESUCCESS        (UINT16_C(0))
 #define WASI_E2BIG           (UINT16_C(1))
 #define WASI_EACCES          (UINT16_C(2))
@@ -92,11 +93,17 @@
 #define WASI_ENOTCAPABLE     (UINT16_C(76))
 
 
+#define DREKKAR_MAX_ARGUMENTS 32
+
 typedef struct drekkar_wa_env_type drekkar_wa_env_type;
+
 
 struct drekkar_wa_env_type
 {
 	char file_name[PATH_MAX];
+	FILE* log;
+	int argc;
+	const char* argv[DREKKAR_MAX_ARGUMENTS];
 	drekkar_linear_storage_8_type bytes;
 	drekkar_wa_prog *p;
 	drekkar_wa_data *d;

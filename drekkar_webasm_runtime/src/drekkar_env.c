@@ -231,9 +231,9 @@ static void register_functions(drekkar_wa_prog *p)
 	drekkar_wa_register_function(p, "test_hello", test_hello);
 }
 
-static long parse_prog_sections(drekkar_wa_prog *p, uint8_t *bytes, size_t file_size, char* exception, size_t size_exception)
+static long parse_prog_sections(drekkar_wa_prog *p, uint8_t *bytes, size_t file_size, char* exception, size_t size_exception, FILE *log)
 {
-	const long r = drekkar_wa_parse_prog_sections(p, bytes, file_size, exception, size_exception);
+	const long r = drekkar_wa_parse_prog_sections(p, bytes, file_size, exception, size_exception, log);
 	if ((r != 0) || (exception[0] != 0))
 	{
 		printf("exception: %lld '%s'\n", (long long)r, exception);
@@ -379,26 +379,18 @@ static const drekkar_wa_function* find_main(const drekkar_wa_prog *p)
 	const drekkar_wa_function *f = NULL;
 
 	#ifdef RUN_TEST_WASM
-	if (f == NULL)
-	{
-		f = drekkar_wa_find_exported_function(p, RUN_TEST_WASM);
-	}
+	if (f == NULL) {f = drekkar_wa_find_exported_function(p, RUN_TEST_WASM);}
 	#endif
 
-	if (f == NULL)
-	{
-		f = drekkar_wa_find_exported_function(p, "__main_argc_argv");
-	}
+	if (f == NULL) {f = drekkar_wa_find_exported_function(p, "__main_argc_argv");}
 
-	if (f == NULL)
-	{
-		f = drekkar_wa_find_exported_function(p, "main");
-	}
+	if (f == NULL) {f = drekkar_wa_find_exported_function(p, "main");}
 
-	if (f == NULL)
-	{
-		f = drekkar_wa_find_exported_function(p, "start");
-	}
+	if (f == NULL) {f = drekkar_wa_find_exported_function(p, "_start");}
+
+	if (f == NULL) {f = drekkar_wa_find_exported_function(p, "start");}
+
+	if (f == NULL) {f = drekkar_wa_find_exported_function(p, "test");}
 
 	return f;
 }
@@ -432,7 +424,6 @@ long drekkar_wa_env_init(drekkar_wa_env_type *e)
 
 	drekkar_linear_storage_8_init(&e->bytes);
 
-
 	uint32_t file_size = load_file(&e->bytes, e->file_name);
 
 	if (file_size < 8)
@@ -445,10 +436,11 @@ long drekkar_wa_env_init(drekkar_wa_env_type *e)
 
 	register_functions(e->p);
 
-
-	r = parse_prog_sections(e->p, e->bytes.array, file_size, exception, sizeof(exception));
+	r = parse_prog_sections(e->p, e->bytes.array, file_size, exception, sizeof(exception), e->log);
 	assert(exception[sizeof(exception)-1]==0);
 	if (r) {drekkar_wa_prog_deinit(e->p); return r;}
+
+	drekkar_wa_data_init(e->d);
 
 	return r;
 }
@@ -457,27 +449,23 @@ long drekkar_wa_env_tick(drekkar_wa_env_type *e)
 {
 	long r = 0;
 
-	const char* argv[1]={e->file_name};
-	int argc = SIZEOF_ARRAY(argv);
-
-	drekkar_wa_data_init(e->d);
+	e->argv[0] = e->file_name;
 
 	r = parse_data_sections(e->p, e->d);
-	if (r) {drekkar_wa_data_deinit(e->d); return r;}
+	if (r) {return r;}
 
-	r = set_command_line_arguments(e->d, argc, argv);
-	if (r) {drekkar_wa_data_deinit(e->d); return r;}
+	r = set_command_line_arguments(e->d, e->argc, e->argv);
+	if (r) {return r;}
 
 	r = find_and_call(e->p, e->d);
-	if (r) {drekkar_wa_data_deinit(e->d); return r;}
-
-	drekkar_wa_data_deinit(e->d);
+	if (r) {return r;}
 
 	return r;
 }
 
 void drekkar_wa_env_deinit(drekkar_wa_env_type *e)
 {
+	drekkar_wa_data_deinit(e->d, e->log);
 	drekkar_wa_prog_deinit(e->p);
 	drekkar_linear_storage_8_deinit(&e->bytes);
 	DREKKAR_ST_FREE(e->p);

@@ -3785,7 +3785,7 @@ static void* find_imported_function(const drekkar_wa_prog *p, const char *name)
 }
 
 // TODO Perhaps split this code so we can initialize data more than once for same prog.
-long drekkar_wa_parse_prog_sections(drekkar_wa_prog *p, const uint8_t *bytes, uint32_t byte_count, char *exception, size_t exception_size)
+long drekkar_wa_parse_prog_sections(drekkar_wa_prog *p, const uint8_t *bytes, uint32_t byte_count, char *exception, size_t exception_size, FILE* log)
 {
 	const size_t max_nof = 16 + byte_count/16;
 
@@ -3922,10 +3922,11 @@ long drekkar_wa_parse_prog_sections(drekkar_wa_prog *p, const uint8_t *bytes, ui
 							f->func_type_idx = leb_read(&p->bytecodes, 32);
 
 							// Some logging.
+
 							char tmp[256];
 							const drekkar_wa_func_type_type *type = drekkar_get_func_type_ptr(p, f->func_type_idx);
 							func_type_to_string(tmp, sizeof(tmp), type);
-							printf("Import 0x%x '%.*s'  %s\n", p->funcs_vector.nof_imported, (int) import_field_size, import_field_ptr, tmp);
+							if (log) {fprintf(log, "Import 0x%x '%.*s'  %s\n", p->funcs_vector.nof_imported, (int) import_field_size, import_field_ptr, tmp);}
 
 							void *ptr = find_imported_function(p, m);
 							if (ptr == NULL)
@@ -4052,19 +4053,19 @@ long drekkar_wa_parse_prog_sections(drekkar_wa_prog *p, const uint8_t *bytes, ui
 							const drekkar_wa_func_type_type *t = drekkar_get_func_type_ptr(p, e->func_type_idx);
 							char tmp[256];
 							func_type_to_string(tmp, sizeof(tmp), t);
-							printf("Exported 0x%x '%s'  %s\n", index, export_name, tmp);
+							if (log) {fprintf(log, "Exported 0x%x '%s'  %s\n", index, export_name, tmp);}
 
 							drekkar_hash_list_put(&p->exported_functions_list, export_name, e);
 							break;
 						}
 						case WA_TABLETYPE:
-							printf("Ignored export of table '%.*s' 0x%x\n", (int) name_len, name, index);
+							if (log) {fprintf(log, "Ignored export of table '%.*s' 0x%x\n", (int) name_len, name, index);}
 							break;
 						case WA_MEMTYPE:
-							printf("Ignored export of memory '%.*s' 0x%x\n", (int) name_len, name, index);
+							if (log) {fprintf(log, "Ignored export of memory '%.*s' 0x%x\n", (int) name_len, name, index);}
 							break;
 						case WA_GLOBALTYPE:
-							printf("Ignored export of global '%.*s' 0x%x\n", (int) name_len, name, index);
+							if (log) {fprintf(log, "Ignored export of global '%.*s' 0x%x\n", (int) name_len, name, index);}
 							break;
 						default:
 							snprintf(exception, exception_size, "Unknown type %d for '%.*s'.", type, (int) name_len, name);
@@ -4115,7 +4116,7 @@ long drekkar_wa_parse_prog_sections(drekkar_wa_prog *p, const uint8_t *bytes, ui
 				}
 				p->bytecodes.pos += section_len;
 				assert(p->bytecodes.pos == d->pc.pos);
-				drekkar_wa_data_deinit(d);
+				drekkar_wa_data_deinit(d, log);
 				DREKKAR_ST_FREE(d);
 				#else
 				p->bytecodes.pos += section_len;
@@ -4588,18 +4589,19 @@ void drekkar_wa_data_init(drekkar_wa_data *d)
 
 }
 
-void drekkar_wa_data_deinit(drekkar_wa_data *d)
+void drekkar_wa_data_deinit(drekkar_wa_data *d, FILE* log)
 {
 	assert(d->exception[sizeof(d->exception)-1]==0);
 
-	printf("Memory usage: %zu + %zu + %zu  +  %zu + %zu + %u + %zu\n",
+	if (log) {
+		fprintf(log, "Memory usage: %zu + %zu + %zu  +  %zu + %zu + %u + %zu\n",
 			d->memory.lower_mem.capacity,
 			d->memory.upper_mem.end - d->memory.upper_mem.begin,
 			d->memory.arguments.size,
 			d->globals.capacity * 8,
 			d->block_stack.capacity * sizeof(drekkar_block_stack_entry),
 			DREKKAR_STACK_SIZE,
-			d->pc.nof);
+			d->pc.nof);}
 
 	drekkar_linear_storage_64_deinit(&d->globals);
 

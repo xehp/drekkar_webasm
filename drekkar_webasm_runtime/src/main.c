@@ -35,11 +35,14 @@ static int does_folder_exist(const char* pathname)
 
 
 static void print_help(const char* name) {
-	printf("Usage: %s [options] <filename>\n", name);
+	printf("Usage: %s [options] <filename> <arguments for guest>\n", name);
 	printf("Options:\n");
-	printf("  --help                 Display this information.\n");
-	printf("  --version              Display the version and copyright info.\n");
-	printf("Where <filename> shall be the name of a \".wasm\" file.\n");
+	printf("  --help           Display this information.\n");
+	printf("  --version        Display the version and copyright info.\n");
+	printf("  --logging-on     More logging.\n");
+	printf("Where:\n");
+	printf("  <filename> shall be the name of a \".wasm\" file.\n");
+	printf("  <arguments for guest> will be passed on to web assembly code.\n");
 }
 
 static void print_version(const char* name) {
@@ -132,7 +135,6 @@ static int test_drekkar_webasm_runtime(drekkar_wa_env_type *e)
 		#else
 		snprintf(e->file_name, sizeof(e->file_name), "%s/hello_world.wasm", path);
 		#endif
-
 	}
 
 	long r = drekkar_wa_env_init(e);
@@ -156,24 +158,46 @@ int main(int argc, char** argv)
 {
 	drekkar_wa_env_type e = {0};
 
+	e.argv[0] = argv[0];
+	e.argc = 1;
+
 	/* Parse the command line arguments. */
 	int n = 1;
 	while (n < argc)
 	{
 		const char *arg = argv[n++];
-		if ((strcmp(arg, "--help") == 0) || (strcmp(arg, "-h") == 0))
+		if (arg[0] == '-')
 		{
-			print_help(argv[0]);
-			return 0;
-		}
-		else if (strcmp(arg, "--version") == 0)
-		{
-			print_version(argv[0]);
-			return 0;
+			if ((strcmp(arg, "--help") == 0) || (strcmp(arg, "-h") == 0))
+			{
+				print_help(argv[0]);
+				return 0;
+			}
+			else if (strcmp(arg, "--version") == 0)
+			{
+				print_version(argv[0]);
+				return 0;
+			}
+			else if (strcmp(arg, "--logging-on") == 0)
+			{
+				e.log = stdout;
+			}
+			else
+			{
+				printf("Unknown argument '%s'. Try --help for more info.\n", arg);
+				return 0;
+			}
 		}
 		else
 		{
 			snprintf(e.file_name, sizeof(e.file_name), "%s", arg);
+			while (n < argc)
+			{
+				assert(n < argc);
+				assert(e.argc < SIZEOF_ARRAY(e.argv));
+				e.argv[e.argc] = argv[n++];
+				e.argc++;
+			}
 		}
 	}
 

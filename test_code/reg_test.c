@@ -1,15 +1,18 @@
 /*
-hello_arg.c
+reg_test.c
 
 Compile this with emscripten to then run in the WebAsm virtual machine.
 sudo apt-get install binaryen emscripten gcc-multilib g++-multilib libedit-dev:i386
-emcc hello_arg.c
+emcc reg_test.c
 
 To read compiled the binary code do:
 wasm-dis a.out.wasm
 
+Run it in node:
+node a.out.js
+
 Or to test native:
-gcc hello_arg.c -lm
+gcc reg_test.c -lm
 
 This is an extended version of the hello world program.
 
@@ -367,7 +370,7 @@ static uint64_t rotr64(uint64_t value, unsigned int shift)
 
 static int test_rotation_32(int32_t a)
 {
-    printf("start 0x%08x\n", a);
+    printf("test_rotation_32, start 0x%08x\n", a);
     for(int i = 0; i < 36; ++i)
     {
         printf("rotl32 %d 0x%08x\n", i, rotl32(a, i));
@@ -381,14 +384,14 @@ static int test_rotation_32(int32_t a)
 
 static int test_rotation_64(int64_t a)
 {
-    printf("start 0x%08llx\n", (long long)a);
+    printf("test_rotation_64, start 0x%08llx\n", (long long)a);
     for(int i = 0; i < 36; ++i)
     {
-        printf("rotl32 %d 0x%016llx\n", i, (long long)rotl64(a, i));
+        printf("rotl64 %d 0x%016llx\n", i, (long long)rotl64(a, i));
     }
     for(int i = 0; i < 36; ++i)
     {
-        printf("rotr32 %d 0x%016llx\n", i, (long long)rotr64(a, i));
+        printf("rotr64 %d 0x%016llx\n", i, (long long)rotr64(a, i));
     }
     return rotr32(a, 7);
 }

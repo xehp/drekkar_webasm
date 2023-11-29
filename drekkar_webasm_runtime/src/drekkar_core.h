@@ -44,7 +44,7 @@
 //    PATCH version when you make backward compatible bug fixes
 // Warning! We do not follow this at early stages when major is 0.
 #define DREKKAR_VERSION_MAJOR 0
-#define DREKKAR_VERSION_MINOR 3
+#define DREKKAR_VERSION_MINOR 4
 #define DREKKAR_VERSION_PATCH 0
 
 
@@ -682,12 +682,12 @@ long drekkar_wa_value_and_type_to_string(char* buf, size_t size, const drekkar_w
 long drekkar_wa_setup_function_call(const drekkar_wa_prog *p, drekkar_wa_data *d, uint32_t fidx);
 long drekkar_wa_tick(const drekkar_wa_prog *p, drekkar_wa_data *d);
 const drekkar_wa_function *drekkar_wa_find_exported_function(const drekkar_wa_prog *p, const char *name);
-long drekkar_wa_parse_prog_sections(drekkar_wa_prog *p, const uint8_t *bytes, uint32_t byte_count, char* exception, size_t exception_size);
+long drekkar_wa_parse_prog_sections(drekkar_wa_prog *p, const uint8_t *bytes, uint32_t byte_count, char* exception, size_t exception_size, FILE* log);
 long drekkar_wa_parse_data_sections(const drekkar_wa_prog *p, drekkar_wa_data *d);
 void drekkar_wa_prog_init(drekkar_wa_prog *p);
 void drekkar_wa_prog_deinit(drekkar_wa_prog *p);
 void drekkar_wa_data_init(drekkar_wa_data *d);
-void drekkar_wa_data_deinit(drekkar_wa_data *d);
+void drekkar_wa_data_deinit(drekkar_wa_data *d, FILE* log);
 long drekkar_wa_set_command_line_arguments(drekkar_wa_data *d, uint32_t argc, const char **argv);
 void* drekkar_wa_translate_to_host_addr_space(drekkar_wa_data *d, uint32_t offset, size_t size);
 void drekkar_wa_register_function(drekkar_wa_prog *p, const char* name, drekkar_wa_func_ptr ptr);
