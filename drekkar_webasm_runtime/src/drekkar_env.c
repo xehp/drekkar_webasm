@@ -37,6 +37,7 @@ Created October 2023 by Henrik
 
 //#define RUN_TEST_WASM "test_const"
 
+#define MAX_MEM_QUOTA 0x10000000
 
 typedef struct wa_ciovec_type {
 	uint32_t buf;
@@ -283,6 +284,18 @@ static long set_command_line_arguments(drekkar_wa_data *d, uint32_t argc, const 
 	#endif
 }
 
+// TODO Move this to drekkar_core.c
+static long long total_memory_usage(drekkar_wa_data *d)
+{
+	return d->memory.lower_mem.capacity +
+	(d->memory.upper_mem.end - d->memory.upper_mem.begin) +
+	d->memory.arguments.size +
+	(d->globals.capacity * 8) +
+	(d->block_stack.capacity * sizeof(drekkar_block_stack_entry)) +
+	DREKKAR_STACK_SIZE +
+	d->pc.nof;
+}
+
 static void report_result(const drekkar_wa_prog *p, drekkar_wa_data *d, const drekkar_wa_function *f)
 {
 	// If the called function had a return value it should be on the stack.
@@ -312,9 +325,11 @@ static void report_result(const drekkar_wa_prog *p, drekkar_wa_data *d, const dr
 
 static long call_and_run_exported_function(const drekkar_wa_prog *p, drekkar_wa_data *d, const drekkar_wa_function *f)
 {
+	long long total_gas_usage = 0;
 	long r = drekkar_wa_call_exported_function(p, d, f->func_idx);
 	for(;;)
 	{
+		total_gas_usage += (DREKKAR_GAS - d->gas_meter);
 		if ((r != DREKKAR_WA_NEED_MORE_GAS) && (r != DREKKAR_WA_OK))
 		{
 			printf("exception %ld '%s'\n", r, d->exception);
@@ -330,15 +345,11 @@ static long call_and_run_exported_function(const drekkar_wa_prog *p, drekkar_wa_
 		}
 		else if (r == DREKKAR_WA_NEED_MORE_GAS)
 		{
-			// TODO This is a good place to check that the guest does not use
-			// ridicules amounts of RAM (memory) and if it does kick it out.
-			/*printf("Memory usage: %zu + %zu + %zu  +  %zu + %zu + %zu\n",
-					d->memory.lower_mem.capacity,
-					d->memory.upper_mem.end - d->memory.upper_mem.begin,
-					d->memory.arguments.size,
-					d->globals.capacity * 8,
-					d->block_stack.capacity * sizeof(drekkar_block_stack_entry),
-					d->pc.nof);*/
+			if (total_memory_usage(d) > MAX_MEM_QUOTA)
+			{
+				printf("To much memory used %lld > %d\n", total_memory_usage(d), MAX_MEM_QUOTA);
+				return DREKKAR_WA_MAX_MEM_QUOTA_EXCEEDED;
+			}
 
 			// Guest has more work to do. Let it continue some more.
 			r = drekkar_wa_tick(p, d);
@@ -346,6 +357,7 @@ static long call_and_run_exported_function(const drekkar_wa_prog *p, drekkar_wa_
 		else if (r == DREKKAR_WA_OK)
 		{
 			report_result(p,d, f);
+			printf("Total gas and memory usage: %lld %lld\n", total_gas_usage, total_memory_usage(d));
 			break;
 		}
 	}

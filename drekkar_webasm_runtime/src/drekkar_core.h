@@ -44,7 +44,7 @@
 //    PATCH version when you make backward compatible bug fixes
 // Warning! We do not follow this at early stages when major is 0.
 #define DREKKAR_VERSION_MAJOR 0
-#define DREKKAR_VERSION_MINOR 2
+#define DREKKAR_VERSION_MINOR 3
 #define DREKKAR_VERSION_PATCH 0
 
 
@@ -466,6 +466,7 @@ enum {
 	DREKKAR_WA_INSUFFICIENT_PARRAMETERS_FOR_CALL,
 	DREKKAR_WA_NOT_AN_IDX_OF_IMPORTED_FUNCTION,
 	DREKKAR_WA_EXCEPTION_FROM_IMPORTED_FUNCTION,
+	DREKKAR_WA_MAX_MEM_QUOTA_EXCEEDED,
 };
 
 typedef struct drekkar_wa_data drekkar_wa_data;
@@ -496,6 +497,7 @@ typedef struct drekkar_wa_data drekkar_wa_data;
 // If something is added here, add it to type_name also.
 enum drekkar_value_type_enum
 {
+	// TODO prefix these also?
     //WA_INVALID_VALUE = 0,
 	WA_EMPTY_TYPE = 0x40,
 	WA_FUNC = 0x60,
@@ -511,6 +513,7 @@ enum drekkar_value_type_enum
 // [1] 5.5.5. Import Section & 5.5.10. Export Section
 enum drekkar_kind_type_enum
 {
+	// TODO prefix these also?
 	WA_FUNCTYPE = 0x00,
 	WA_TABLETYPE = 0x01,
 	WA_MEMTYPE = 0x02,
@@ -519,6 +522,7 @@ enum drekkar_kind_type_enum
 
 enum drekkar_block_type_enum
 {
+	// TODO prefix these also?
 	wa_block_type_invalid = 0,
 	wa_block_type_init_exp = 1,
 	wa_block_type_block = 2,

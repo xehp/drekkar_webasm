@@ -48,7 +48,6 @@
 #include <limits.h>
 #include <stdio.h>
 #include <unistd.h>
-#include <signal.h>
 #include "drekkar_core.h"
 
 
@@ -584,62 +583,6 @@ static long alloc_size = 0;
 static int logged_alloc_counter = 0x10000;
 
 
-
-
-#ifndef __WIN32
-extern int gettimeofday (struct timeval *__restrict __tv,
-			 void *) __THROW __nonnull ((1));
-
-
-int64_t drekkar_st_get_time_us()
-{
-	struct timeval t;
-	gettimeofday(&t, NULL);
-	const int64_t m = 1000000LL;
-	const int64_t us = (m*t.tv_sec)+t.tv_usec;
-	return us;
-}
-
-#else
-
-// https://stackoverflow.com/questions/10905892/equivalent-of-gettimeday-for-windows
-
-// MSVC defines this in winsock2.h!? If not uncomment this.
-/*typedef struct timeval {
-    long tv_sec;
-    long tv_usec;
-} timeval;*/
-
-static int my_gettimeofday(struct timeval * tp, struct timezone * tzp)
-{
-    // Note: some broken versions only have 8 trailing zero's, the correct epoch has 9 trailing zero's
-    // This magic number is the number of 100 nanosecond intervals since January 1, 1601 (UTC)
-    // until 00:00:00 January 1, 1970
-    static const uint64_t EPOCH = ((uint64_t) 116444736000000000ULL);
-
-    SYSTEMTIME  system_time;
-    FILETIME    file_time;
-    uint64_t    time;
-
-    GetSystemTime( &system_time );
-    SystemTimeToFileTime( &system_time, &file_time );
-    time =  ((uint64_t)file_time.dwLowDateTime )      ;
-    time += ((uint64_t)file_time.dwHighDateTime) << 32;
-
-    tp->tv_sec  = (long) ((time - EPOCH) / 10000000L);
-    tp->tv_usec = (long) (system_time.wMilliseconds * 1000);
-    return 0;
-}
-
-int64_t utime_us()
-{
-	struct timeval t;
-	my_gettimeofday(&t, NULL);
-	const int64_t us = t.tv_sec*1000000L+t.tv_usec;
-	return us;
-}
-
-#endif
 
 void drekkar_st_init()
 {
@@ -1902,7 +1845,7 @@ long drekkar_wa_tick(const drekkar_wa_prog *p, drekkar_wa_data *d)
 			case 0x01: // nop
 				// The nop instruction does nothing.
 				D("nop\n");
-				if (--d->gas_meter < 0) {return DREKKAR_WA_NEED_MORE_GAS;}
+				if (--d->gas_meter <= 0) {return DREKKAR_WA_NEED_MORE_GAS;}
 				break;
 			case 0x02: // block
 			{
@@ -1935,7 +1878,7 @@ long drekkar_wa_tick(const drekkar_wa_prog *p, drekkar_wa_data *d)
 				}
 
 				D("block\n");
-				if (--d->gas_meter < 0) {return DREKKAR_WA_NEED_MORE_GAS;}
+				if (--d->gas_meter <= 0) {return DREKKAR_WA_NEED_MORE_GAS;}
 				break;
 			}
 			case 0x03: // loop
@@ -1959,7 +1902,7 @@ long drekkar_wa_tick(const drekkar_wa_prog *p, drekkar_wa_data *d)
 					return DREKKAR_WA_VALUE_TYPE_NOT_SUPPORED_YET;
 				}
 				D("loop\n");
-				if (--d->gas_meter < 0) {return DREKKAR_WA_NEED_MORE_GAS;}
+				if (--d->gas_meter <= 0) {return DREKKAR_WA_NEED_MORE_GAS;}
 				break;
 			}
 			case 0x04:
@@ -2035,7 +1978,7 @@ long drekkar_wa_tick(const drekkar_wa_prog *p, drekkar_wa_data *d)
 				}
 
 				D("if %u\n", cond);
-				if (--d->gas_meter < 0) {return DREKKAR_WA_NEED_MORE_GAS;}
+				if (--d->gas_meter <= 0) {return DREKKAR_WA_NEED_MORE_GAS;}
 				break;
 			}
 			case 0x05: // else
@@ -2044,7 +1987,7 @@ long drekkar_wa_tick(const drekkar_wa_prog *p, drekkar_wa_data *d)
 				const drekkar_block_stack_entry *f = (drekkar_block_stack_entry*) drekkar_linear_storage_size_top(&d->block_stack);
 				d->pc.pos = f->if_else_info.end_addr;
 				D("else\n");
-				if (--d->gas_meter < 0) {return DREKKAR_WA_NEED_MORE_GAS;}
+				if (--d->gas_meter <= 0) {return DREKKAR_WA_NEED_MORE_GAS;}
 				break;
 			}
 			case 0x0b: // end
@@ -2135,7 +2078,7 @@ long drekkar_wa_tick(const drekkar_wa_prog *p, drekkar_wa_data *d)
 					default: break;
 				}
 				D("end\n");
-				if (--d->gas_meter < 0) {return DREKKAR_WA_NEED_MORE_GAS;}
+				if (--d->gas_meter <= 0) {return DREKKAR_WA_NEED_MORE_GAS;}
 				break;
 			}
 			case 0x0c: // br
@@ -2151,7 +2094,7 @@ long drekkar_wa_tick(const drekkar_wa_prog *p, drekkar_wa_data *d)
 				const drekkar_block_stack_entry *f = (drekkar_block_stack_entry*) drekkar_linear_storage_size_top(&d->block_stack);
 				d->pc.pos = f->block_and_loop_info.br_addr;
 				D("br\n");
-				if (--d->gas_meter < 0) {return DREKKAR_WA_NEED_MORE_GAS;}
+				if (--d->gas_meter <= 0) {return DREKKAR_WA_NEED_MORE_GAS;}
 				break;
 			}
 			case 0x0d: // br_if
@@ -2178,7 +2121,7 @@ long drekkar_wa_tick(const drekkar_wa_prog *p, drekkar_wa_data *d)
 				{
 					/* do nothing, will just continue with next opcode. */
 				}
-				if (--d->gas_meter < 0) {return DREKKAR_WA_NEED_MORE_GAS;}
+				if (--d->gas_meter <= 0) {return DREKKAR_WA_NEED_MORE_GAS;}
 				break;
 			}
 			case 0x0e: // br_table
@@ -2221,7 +2164,7 @@ long drekkar_wa_tick(const drekkar_wa_prog *p, drekkar_wa_data *d)
 
 				DREKKAR_ST_FREE(a);
 				D("br_table\n");
-				if (--d->gas_meter < 0) {return DREKKAR_WA_NEED_MORE_GAS;}
+				if (--d->gas_meter <= 0) {return DREKKAR_WA_NEED_MORE_GAS;}
 				break;
 			}
 			case 0x0f: // return
@@ -2257,7 +2200,7 @@ long drekkar_wa_tick(const drekkar_wa_prog *p, drekkar_wa_data *d)
 				}
 
 				D("return\n");
-				if (--d->gas_meter < 0) {return DREKKAR_WA_NEED_MORE_GAS;}
+				if (--d->gas_meter <= 0) {return DREKKAR_WA_NEED_MORE_GAS;}
 				break;
 			}
 			case 0x10: // call
@@ -2281,7 +2224,7 @@ long drekkar_wa_tick(const drekkar_wa_prog *p, drekkar_wa_data *d)
 						return r;
 					}
 				}
-				if (--d->gas_meter < 0) {return DREKKAR_WA_NEED_MORE_GAS;}
+				if (--d->gas_meter <= 0) {return DREKKAR_WA_NEED_MORE_GAS;}
 				break;
 			}
 			case 0x11: // call_indirect
@@ -2351,7 +2294,7 @@ long drekkar_wa_tick(const drekkar_wa_prog *p, drekkar_wa_data *d)
 					if (r) {return DREKKAR_WA_INDIRECT_CALL_FAILED;}
 				}
 				D("call_indirect %u %u %u %u\n", typeidx, tableidx, idx_into_table, (unsigned int)function_idx);
-				if (--d->gas_meter < 0) {return DREKKAR_WA_NEED_MORE_GAS;}
+				if (--d->gas_meter <= 0) {return DREKKAR_WA_NEED_MORE_GAS;}
 				break;
 			}
 
@@ -2676,7 +2619,7 @@ long drekkar_wa_tick(const drekkar_wa_prog *p, drekkar_wa_data *d)
 				}
 				SET_U32(d, current_size_in_pages);
 				D("grow_memory %u %u\n", current_size_in_pages, requested_increase);
-				if (--d->gas_meter < 0) {return DREKKAR_WA_NEED_MORE_GAS;}
+				if (--d->gas_meter <= 0) {return DREKKAR_WA_NEED_MORE_GAS;}
 				break;
 			}
 
@@ -3814,7 +3757,7 @@ static long run_init_expr(const drekkar_wa_prog *p, drekkar_wa_data *d, uint8_t 
 	assert(d->sp == DREKKAR_SP_INITIAL);
 	d->fp = STACK_SIZE(d);
 
-	D("run_init_expr 0x%x 0x%x 0x%x\n", d->fp, d->sp, d->pc.pos);
+	D("run_init_expr 0x%x 0x%x 0x%llx\n", d->fp, d->sp, (long long)d->pc.pos);
 
 	long r = drekkar_wa_tick(p, d);
 
@@ -3867,7 +3810,7 @@ long drekkar_wa_parse_prog_sections(drekkar_wa_prog *p, const uint8_t *bytes, ui
 		uint32_t section_id = leb_read(&p->bytecodes, 7);
 		uint32_t section_len = leb_read(&p->bytecodes, 32);
 		const uint32_t section_begin = p->bytecodes.pos;
-		D("Parsing prog section %d, pos 0x%x, len %d\n", section_id, p->bytecodes.pos, section_len);
+		D("Parsing prog section %d, pos 0x%llx, len %d\n", section_id, (long long)p->bytecodes.pos, section_len);
 
 		switch (section_id)
 		{
@@ -4288,7 +4231,7 @@ long drekkar_wa_parse_data_sections(const drekkar_wa_prog *p, drekkar_wa_data *d
 		uint32_t id = leb_read(&d->pc, 7);
 		uint32_t section_len = leb_read(&d->pc, 32);
 		const uint32_t section_begin = d->pc.pos;
-		D("Parsing data section %d, pos 0x%x, len %d\n", id, p->bytecodes.pos, section_len);
+		D("Parsing data section %d, pos 0x%llx, len %d\n", id, (long long)p->bytecodes.pos, section_len);
 
 		switch (id)
 		{
@@ -4641,7 +4584,7 @@ void drekkar_wa_data_init(drekkar_wa_data *d)
 	d->sp = DREKKAR_SP_INITIAL; // Not zero but -1 here (CPU optimize from ref [3]).
 	d->fp = STACK_SIZE(d);
 	d->block_stack.size = 0;
-	D("wa_data_init 0x%x 0x%x 0x%x\n", d->fp, d->sp, d->pc.pos);
+	D("wa_data_init 0x%x 0x%x 0x%llx\n", d->fp, d->sp, (long long)d->pc.pos);
 
 }
 
@@ -4649,13 +4592,13 @@ void drekkar_wa_data_deinit(drekkar_wa_data *d)
 {
 	assert(d->exception[sizeof(d->exception)-1]==0);
 
-	// TODO We need to keep track of the amount of memory in use during runtime.
-	printf("Memory usage: %zu + %zu + %zu  +  %zu + %zu + %zu\n",
+	printf("Memory usage: %zu + %zu + %zu  +  %zu + %zu + %u + %zu\n",
 			d->memory.lower_mem.capacity,
 			d->memory.upper_mem.end - d->memory.upper_mem.begin,
 			d->memory.arguments.size,
 			d->globals.capacity * 8,
 			d->block_stack.capacity * sizeof(drekkar_block_stack_entry),
+			DREKKAR_STACK_SIZE,
 			d->pc.nof);
 
 	drekkar_linear_storage_64_deinit(&d->globals);

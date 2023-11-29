@@ -2,15 +2,19 @@
 
 Drekkar WebAsm runtime environment<br>
 
-This is a WebAssembly environment intended for embedding in other applications.
+This is a Web Assembly environment intended to be embedded in other applications.
 The Web Assembly programs ".wasm" are typically written in "C" and compiled
 with emscripten. It can also be used to drive Domain Specific Language (DSL).
+Deterministic CPU usage (gas metering) and memory usage can be monitored in runtime.
 
 To make it easy to integrate into other projects the number of files has
 been keept at a minimum. Essentially two "C" source files. One to provide
 the engine itself and one for the environment. The other files are 
 the example main file, header files and test files.
 
+This program was developed on Linux, it's not tested on other OSes.
+To see what is tested check the test_code/reg_test.c file. To see what 
+is not tested check the source code for comments about "not tested".
 
 Copyright (C) 2023<br>
 Henrik Bjorkman http://www.eit.se/hb<br>
