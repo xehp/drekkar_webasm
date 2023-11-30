@@ -44,7 +44,7 @@
 //    PATCH version when you make backward compatible bug fixes
 // Warning! We do not follow this at early stages when major is 0.
 #define DREKKAR_VERSION_MAJOR 0
-#define DREKKAR_VERSION_MINOR 5
+#define DREKKAR_VERSION_MINOR 6
 #define DREKKAR_VERSION_PATCH 0
 
 
@@ -469,6 +469,9 @@ enum {
 	DREKKAR_WA_NOT_AN_IDX_OF_IMPORTED_FUNCTION,
 	DREKKAR_WA_EXCEPTION_FROM_IMPORTED_FUNCTION,
 	DREKKAR_WA_MAX_MEM_QUOTA_EXCEEDED,
+	DREKKAR_WA_BRANCH_ADDR_OUT_OF_RANGE,
+	DREKKAR_WA_PC_ADDR_OUT_OF_RANGE,
+	DREKKAR_WA_ADDR_OUT_OF_RANGE,
 };
 
 typedef struct drekkar_wa_data drekkar_wa_data;

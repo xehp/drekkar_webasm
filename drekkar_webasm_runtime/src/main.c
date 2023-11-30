@@ -37,10 +37,10 @@ static int does_folder_exist(const char* pathname)
 static void print_help(const char* name) {
 	printf("Usage: %s [options] <filename> <arguments for guest>\n", name);
 	printf("Options:\n");
-	printf("  --help         Display this information.\n");
-	printf("  --version      Display the version and copyright info.\n");
-	printf("  --logging-on   More logging.\n");
-	printf("  --push-numbers Push arguments as numbers (not as argv/argc).\n");
+	printf("  --help               Display this information.\n");
+	printf("  --version            Display the version and copyright info.\n");
+	printf("  --logging-on         More logging.\n");
+	printf("  --function_name <n>  Call other function (that is not main).\n");
 	printf("Where:\n");
 	printf("  <filename>     shall be the name of a \".wasm\" file.\n");
 	printf("  <argv/argc>    will be passed on to web assembly code.\n");
@@ -74,8 +74,8 @@ static void print_version(const char* name) {
 	printf("sudo apt-get install binaryen emscripten gcc-multilib g++-multilib libedit-dev:i386\n");
 	printf("\n");
 	printf("References:\n");
-	printf("[1] WebAssembly Core Specification Editor’s Draft, 7 November 2023\n");
-	printf("    https://webassembly.github.io/spec/core/bikeshed/\n");
+	printf(" [1] WebAssembly Core Specification Editor’s Draft, 7 November 2023\n");
+	printf("     https://webassembly.github.io/spec/core/bikeshed/\n");
 	printf("     https://webassembly.github.io/spec/core/_download/WebAssembly.pdf\n");
 	printf(" [2] https://developer.mozilla.org/en-US/docs/WebAssembly/Reference\n");
 	printf(" [3] https://github.com/kanaka/wac/tree/master\n");
@@ -183,9 +183,10 @@ int main(int argc, char** argv)
 			{
 				e.log = stdout;
 			}
-			else if (strcmp(arg, "--push-numbers") == 0)
+			else if (strcmp(arg, "--function_name") == 0)
 			{
-				e.arg_numbers = 1;
+				if (n >= argc) {return 0;}
+				e.function_name = argv[n++];
 				e.argc = 0;
 			}
 			else

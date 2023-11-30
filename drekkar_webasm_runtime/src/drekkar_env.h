@@ -104,7 +104,7 @@ struct drekkar_wa_env_type
 	FILE* log;
 	int argc;
 	const char* argv[DREKKAR_MAX_ARGUMENTS];
-	int arg_numbers;
+	const char* function_name;
 	drekkar_linear_storage_8_type bytes;
 	drekkar_wa_prog *p;
 	drekkar_wa_data *d;

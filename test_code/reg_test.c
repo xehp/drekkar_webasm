@@ -1,6 +1,8 @@
 /*
 reg_test.c
 
+This is an extended version of the hello world program.
+
 Compile this with emscripten to then run in the WebAsm virtual machine.
 sudo apt-get install binaryen emscripten gcc-multilib g++-multilib libedit-dev:i386
 emcc reg_test.c
@@ -14,7 +16,8 @@ node a.out.js
 Or to test native:
 gcc reg_test.c -lm
 
-This is an extended version of the hello world program.
+To run int in our runtime:
+./drekkar_webasm_runtime ../test_code/a.out.wasm
 
 */
 

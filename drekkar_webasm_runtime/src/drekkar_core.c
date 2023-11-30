@@ -1677,7 +1677,7 @@ static long get_oplen(const uint8_t *ptr)
 				leb_read(&r, 32);
 			}
 			leb_read(&r, 32);
-			assert((1 + r.pos) < 0x10000);
+			//assert((1 + r.pos) < 0x10000);
 			return 1 + r.pos;
 		}
 		case 0x11:
@@ -1889,8 +1889,10 @@ long drekkar_wa_tick(const drekkar_wa_prog *p, drekkar_wa_data *d)
 				block->block_type_code = wa_block_type_block;
 				block->func_type_idx = blocktype;
 				block->block_and_loop_info.br_addr = find_br_addr(p, d, d->pc.pos);
-				block->stack_pointer = d->sp;
+				block->stack_pointer = d->sp; // Or just set it to zero?
 				block->frame_pointer = d->fp;
+
+				D("block\n");
 
 				const drekkar_wa_func_type_type *ptr = drekkar_get_func_type_ptr(p, block->func_type_idx);
 				if (ptr == NULL)
@@ -1899,7 +1901,8 @@ long drekkar_wa_tick(const drekkar_wa_prog *p, drekkar_wa_data *d)
 					return DREKKAR_WA_VALUE_TYPE_NOT_SUPPORED_YET;
 				}
 
-				D("block\n");
+				if (block->block_and_loop_info.br_addr > d->pc.nof) {return DREKKAR_WA_BRANCH_ADDR_OUT_OF_RANGE;}
+				if (d->pc.pos >= d->pc.nof) {return DREKKAR_WA_PC_ADDR_OUT_OF_RANGE;}
 				if (--d->gas_meter <= 0) {return DREKKAR_WA_NEED_MORE_GAS;}
 				break;
 			}
@@ -1916,18 +1919,21 @@ long drekkar_wa_tick(const drekkar_wa_prog *p, drekkar_wa_data *d)
 				block->stack_pointer = d->sp;
 				block->frame_pointer = d->fp;
 
+				D("loop\n");
+
 				const drekkar_wa_func_type_type *ptr = drekkar_get_func_type_ptr(p, block->func_type_idx);
 				if (ptr == NULL)
 				{
 					printf("value_type %02llx\n", (long long) block->func_type_idx);
 					return DREKKAR_WA_VALUE_TYPE_NOT_SUPPORED_YET;
 				}
-				D("loop\n");
+
+				if (d->pc.pos >= d->pc.nof) {return DREKKAR_WA_PC_ADDR_OUT_OF_RANGE;}
 				if (--d->gas_meter <= 0) {return DREKKAR_WA_NEED_MORE_GAS;}
 				break;
 			}
 			case 0x04: // if
-			{ // not much tested
+			{
 				const int64_t blocktype = leb_read_signed(&d->pc, 33);
 
 				drekkar_block_stack_entry *block = (drekkar_block_stack_entry*) drekkar_linear_storage_size_push(&d->block_stack);
@@ -1941,6 +1947,7 @@ long drekkar_wa_tick(const drekkar_wa_prog *p, drekkar_wa_data *d)
 				// seems to not use if/else so that optimization will be of little use for now.
 
 				uint32_t addr = find_else_or_end(p, d, d->pc.pos);
+				if (addr >= d->pc.nof) {return DREKKAR_WA_ADDR_OUT_OF_RANGE;}
 
 				if (d->pc.array[addr] == 0x0b) // 0x0b = end
 				{
@@ -1953,7 +1960,7 @@ long drekkar_wa_tick(const drekkar_wa_prog *p, drekkar_wa_data *d)
 					// An else was found so continue to find end also.
 					block->if_else_info.else_addr = addr + 1;
 					uint32_t end_addr = find_else_or_end(p, d, block->if_else_info.else_addr);
-					if (d->pc.array[end_addr] != 0x0b)
+					if ((d->pc.array[end_addr] != 0x0b) || (end_addr >= d->pc.nof))
 					{
 						sprintf(d->exception, "%s", "No end in sight!");
 						return DREKKAR_WA_NO_END;
@@ -1972,7 +1979,7 @@ long drekkar_wa_tick(const drekkar_wa_prog *p, drekkar_wa_data *d)
 					// Condition was not true, check if there is an else.
 					if (block->if_else_info.else_addr == 0)
 					{
-						// No else block, skip to end.
+						// No else block.
 						d->block_stack.size--;
 						d->pc.pos = block->if_else_info.end_addr + 1;
 					}
@@ -1988,6 +1995,8 @@ long drekkar_wa_tick(const drekkar_wa_prog *p, drekkar_wa_data *d)
 					// Condition was true, do nothing here, continue until else opcode is found.
 				}
 
+				D("if %u\n", cond);
+
 				const drekkar_wa_func_type_type *ptr = drekkar_get_func_type_ptr(p, block->func_type_idx);
 				if (ptr == NULL)
 				{
@@ -1995,7 +2004,7 @@ long drekkar_wa_tick(const drekkar_wa_prog *p, drekkar_wa_data *d)
 					return DREKKAR_WA_VALUE_TYPE_NOT_SUPPORED_YET;
 				}
 
-				D("if %u\n", cond);
+				if (d->pc.pos >= d->pc.nof) {return DREKKAR_WA_PC_ADDR_OUT_OF_RANGE;}
 				if (--d->gas_meter <= 0) {return DREKKAR_WA_NEED_MORE_GAS;}
 				break;
 			}
@@ -2004,7 +2013,10 @@ long drekkar_wa_tick(const drekkar_wa_prog *p, drekkar_wa_data *d)
 				// Program has reached an else. So now it shall skip to the end of it?
 				const drekkar_block_stack_entry *f = (drekkar_block_stack_entry*) drekkar_linear_storage_size_top(&d->block_stack);
 				d->pc.pos = f->if_else_info.end_addr;
+
 				D("else\n");
+
+				if (d->pc.pos >= d->pc.nof) {return DREKKAR_WA_PC_ADDR_OUT_OF_RANGE;}
 				if (--d->gas_meter <= 0) {return DREKKAR_WA_NEED_MORE_GAS;}
 				break;
 			}
@@ -2096,6 +2108,8 @@ long drekkar_wa_tick(const drekkar_wa_prog *p, drekkar_wa_data *d)
 					default: break;
 				}
 				D("end\n");
+
+				if (d->pc.pos >= d->pc.nof) {return DREKKAR_WA_PC_ADDR_OUT_OF_RANGE;}
 				if (--d->gas_meter <= 0) {return DREKKAR_WA_NEED_MORE_GAS;}
 				break;
 			}
@@ -2111,7 +2125,10 @@ long drekkar_wa_tick(const drekkar_wa_prog *p, drekkar_wa_data *d)
 				d->block_stack.size -= labelidx;
 				const drekkar_block_stack_entry *f = (drekkar_block_stack_entry*) drekkar_linear_storage_size_top(&d->block_stack);
 				d->pc.pos = f->block_and_loop_info.br_addr;
+
 				D("br\n");
+
+				if (d->pc.pos >= d->pc.nof) {return DREKKAR_WA_PC_ADDR_OUT_OF_RANGE;}
 				if (--d->gas_meter <= 0) {return DREKKAR_WA_NEED_MORE_GAS;}
 				break;
 			}
@@ -2139,6 +2156,8 @@ long drekkar_wa_tick(const drekkar_wa_prog *p, drekkar_wa_data *d)
 				{
 					/* do nothing, will just continue with next opcode. */
 				}
+
+				if (d->pc.pos >= d->pc.nof) {return DREKKAR_WA_PC_ADDR_OUT_OF_RANGE;}
 				if (--d->gas_meter <= 0) {return DREKKAR_WA_NEED_MORE_GAS;}
 				break;
 			}
@@ -2181,7 +2200,10 @@ long drekkar_wa_tick(const drekkar_wa_prog *p, drekkar_wa_data *d)
 				d->pc.pos = f->block_and_loop_info.br_addr;
 
 				DREKKAR_ST_FREE(a);
+
 				D("br_table\n");
+
+				if (d->pc.pos >= d->pc.nof) {return DREKKAR_WA_PC_ADDR_OUT_OF_RANGE;}
 				if (--d->gas_meter <= 0) {return DREKKAR_WA_NEED_MORE_GAS;}
 				break;
 			}
@@ -2218,6 +2240,8 @@ long drekkar_wa_tick(const drekkar_wa_prog *p, drekkar_wa_data *d)
 				}
 
 				D("return\n");
+
+				if (d->pc.pos >= d->pc.nof) {return DREKKAR_WA_PC_ADDR_OUT_OF_RANGE;}
 				if (--d->gas_meter <= 0) {return DREKKAR_WA_NEED_MORE_GAS;}
 				break;
 			}
@@ -2242,6 +2266,8 @@ long drekkar_wa_tick(const drekkar_wa_prog *p, drekkar_wa_data *d)
 						return r;
 					}
 				}
+
+				if (d->pc.pos >= d->pc.nof) {return DREKKAR_WA_PC_ADDR_OUT_OF_RANGE;}
 				if (--d->gas_meter <= 0) {return DREKKAR_WA_NEED_MORE_GAS;}
 				break;
 			}
@@ -2311,13 +2337,13 @@ long drekkar_wa_tick(const drekkar_wa_prog *p, drekkar_wa_data *d)
 					const int r = drekkar_wa_setup_function_call(p, d, function_idx);
 					if (r) {return DREKKAR_WA_INDIRECT_CALL_FAILED;}
 				}
+
 				D("call_indirect %u %u %u %u\n", typeidx, tableidx, idx_into_table, (unsigned int)function_idx);
+
+				if (d->pc.pos >= d->pc.nof) {return DREKKAR_WA_PC_ADDR_OUT_OF_RANGE;}
 				if (--d->gas_meter <= 0) {return DREKKAR_WA_NEED_MORE_GAS;}
 				break;
 			}
-
-				// [1] 5.4.2. Reference Instructions
-				// See further down.
 
 			case 0x1a: // drop
 				d->sp--;

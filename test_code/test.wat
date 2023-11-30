@@ -4,7 +4,7 @@
 ;; To get it back into text format do:
 ;; wasm-dis test.wasm
 ;; To run this:
-;; ./drekkar_webasm_runtime --logging-on --push-numbers ../test_code/test.wasm 0 0
+;; ./drekkar_webasm_runtime --function_name test ../test_code/test.wasm 4 4
 (module
   (import "console" "test_log" (func $log (param i32) ))
   (import "console" "test_hello" (func $hello ))

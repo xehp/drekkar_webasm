@@ -35,8 +35,6 @@ Created October 2023 by Henrik
 #include "drekkar_core.h"
 #include "drekkar_env.h"
 
-//#define RUN_TEST_WASM "test_const"
-
 #define MAX_MEM_QUOTA 0x10000000
 
 typedef struct wa_ciovec_type {
@@ -260,8 +258,9 @@ static long parse_data_sections(const drekkar_wa_prog *p, drekkar_wa_data *d)
 
 static long set_command_line_arguments(drekkar_wa_env_type *e)
 {
-	if (e->arg_numbers == 1)
+	if (e->function_name)
 	{
+		// Push all arguments to stack as numbers.
 		for(int i = 0; i < e->argc; i++)
 		{
 			int64_t n = atoll(e->argv[i]);
@@ -271,6 +270,7 @@ static long set_command_line_arguments(drekkar_wa_env_type *e)
 	}
 	else
 	{
+		// Provide arguments to the main function as argc/argv.
 		e->argv[0] = e->file_name;
 		const long r = drekkar_wa_set_command_line_arguments(e->d, e->argc, e->argv);
 		assert(e->d->exception[sizeof(e->d->exception)-1]==0);
@@ -390,10 +390,6 @@ static const drekkar_wa_function* find_main(const drekkar_wa_prog *p)
 {
 	const drekkar_wa_function *f = NULL;
 
-	#ifdef RUN_TEST_WASM
-	if (f == NULL) {f = drekkar_wa_find_exported_function(p, RUN_TEST_WASM);}
-	#endif
-
 	if (f == NULL) {f = drekkar_wa_find_exported_function(p, "__main_argc_argv");}
 	if (f == NULL) {f = drekkar_wa_find_exported_function(p, "main");}
 	if (f == NULL) {f = drekkar_wa_find_exported_function(p, "_start");}
@@ -403,19 +399,31 @@ static const drekkar_wa_function* find_main(const drekkar_wa_prog *p)
 	return f;
 }
 
-static long find_and_call(const drekkar_wa_prog *p, drekkar_wa_data *d, FILE *log)
+static long find_and_call(drekkar_wa_env_type *e)
 {
 	// Do we need to call "__wasm_call_ctors" also?
-	long r = call_ctors(p, d);
+	long r = call_ctors(e->p, e->d);
 	if (r) {return r;}
 
-	const drekkar_wa_function *f = find_main(p);
-	if (!f) {
-		printf("Did not find main or start function.\n");
-		return DREKKAR_WA_FUNCTION_NOT_FOUND;
+	const drekkar_wa_function *f;
+	if (e->function_name)
+	{
+		f = drekkar_wa_find_exported_function(e->p, e->function_name);
+		if (!f) {
+			printf("Did not find function '%s'.\n", e->function_name);
+			return DREKKAR_WA_FUNCTION_NOT_FOUND;
+		}
+	}
+	else
+	{
+		f = find_main(e->p);
+		if (!f) {
+			printf("Did not find main or start function.\n");
+			return DREKKAR_WA_FUNCTION_NOT_FOUND;
+		}
 	}
 
-	return call_and_run_exported_function(p, d, f, log);
+	return call_and_run_exported_function(e->p, e->d, f, e->log);
 }
 
 // Returns zero (WA_OK) if OK.
@@ -465,7 +473,7 @@ long drekkar_wa_env_tick(drekkar_wa_env_type *e)
 	r = set_command_line_arguments(e);
 	if (r) {return r;}
 
-	r = find_and_call(e->p, e->d, e->log);
+	r = find_and_call(e);
 	if (r) {return r;}
 
 	return r;
