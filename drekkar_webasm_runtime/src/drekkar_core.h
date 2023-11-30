@@ -55,6 +55,91 @@
 // End of file version.h
 
 
+// Begin of file sys_time.h
+
+
+
+
+// If using C++ there is a another way:
+// http://www.cplusplus.com/faq/sequences/arrays/sizeof-array/#cpp
+#ifndef SIZEOF_ARRAY
+//#define SIZEOF_ARRAY( a ) (sizeof( a ) / sizeof( a[ 0 ] ))
+#define SIZEOF_ARRAY(a) ((sizeof(a)/sizeof(0[a])) / ((size_t)(!(sizeof(a) % sizeof(0[a])))))
+#endif
+
+
+int64_t drekkar_st_get_time_us();
+void drekkar_st_init();
+void drekkar_st_deinit();
+
+
+
+// Here are some functions and macros to help debugging memory leaks.
+// Performance will be affected.
+// Define macro DREKKAR_ST_DEBUG to get more debugging info.
+// Or define macro NDEBUG to get less.
+// For medium level do not define any of the two.
+// WARNING DREKKAR_ST_DEBUG is not thread safe. So do not use DREKKAR_ST_DEBUG if multi threading is used.
+//#define DREKKAR_ST_DEBUG
+//#define NDEBUG
+
+
+#ifndef DREKKAR_ST_DEBUG
+
+void* drekkar_st_malloc(size_t size);
+void* drekkar_st_calloc(size_t num, size_t size);
+void drekkar_st_free(void* ptr);
+int drekkar_st_is_valid_size(const void* ptr, size_t size);
+void* drekkar_st_resize(void* ptr, size_t old_size, size_t new_size);
+void* drekkar_st_realloc(void* ptr, size_t new_size);
+void* drekkar_st_recalloc(void *ptr, size_t old_num, size_t new_num, size_t size);
+int drekkar_st_is_valid_min(const void* ptr, size_t size);
+size_t drekkar_st_size(const void* ptr);
+
+#ifndef NDEBUG
+#define DREKKAR_ST_MALLOC(size) drekkar_st_malloc(size)
+#define DREKKAR_ST_CALLOC(num, size) drekkar_st_calloc(num, size)
+#define DREKKAR_ST_FREE(ptr) {drekkar_st_free(ptr); ptr = NULL;}
+#define DREKKAR_ST_ASSERT_SIZE(ptr, size) assert(st_is_valid(ptr, size))
+#define DREKKAR_ST_RESIZE(ptr, old_size, new_size) drekkar_st_resize(ptr, old_size, new_size);
+#define DREKKAR_ST_ASSERT_MIN(ptr, size) assert(drekkar_st_is_valid_min(ptr, size))
+#define DREKKAR_ST_FREE_SIZE(ptr, size) {assert(drekkar_st_is_valid_size(ptr, size)); drekkar_st_free(ptr); ptr = NULL;}
+#define DREKKAR_ST_REALLOC(ptr, new_size) drekkar_st_realloc(ptr, new_size);
+#define ST_RECALLOC(ptr, old_num, new_num, size) drekkar_st_recalloc(ptr, old_num, new_num, size);
+#else
+#define DREKKAR_ST_MALLOC(size) malloc(size);
+#define DREKKAR_ST_CALLOC(num, size) calloc(num, size)
+#define DREKKAR_ST_FREE(ptr) free(ptr)
+#define DREKKAR_ST_ASSERT_SIZE(ptr, size)
+#define DREKKAR_ST_ASSERT_MIN(ptr, size)
+#define DREKKAR_ST_FREE_SIZE(ptr, size) free(ptr))
+#endif
+
+#else
+
+void* drekkar_st_malloc(size_t size, const char *file, unsigned int line);
+void* drekkar_st_calloc(size_t num, size_t size, const char *file, unsigned int line);
+void drekkar_st_free(const void* ptr, const char *file, unsigned int line);
+int drekkar_st_is_valid_size(const void* ptr, size_t size);
+void* drekkar_st_resize(void* ptr, size_t old_size, size_t new_size, const char *file, unsigned int line);
+void* drekkar_st_realloc(void* ptr, size_t new_size, const char *file, unsigned int line);
+int drekkar_st_is_valid_min(const void* ptr, size_t size);
+size_t drekkar_st_size(const void* ptr);
+void drekkar_st_log_linked_list();
+
+#define DREKKAR_ST_MALLOC(size) drekkar_st_malloc(size, __FILE__, __LINE__)
+#define DREKKAR_ST_CALLOC(num, size) drekkar_st_calloc(num, size, __FILE__, __LINE__)
+#define DREKKAR_ST_FREE(ptr) {drekkar_st_free(ptr, __FILE__, __LINE__); ptr = NULL;}
+#define DREKKAR_ST_ASSERT_SIZE(ptr, size) assert(drekkar_st_is_valid_size(ptr, size))
+#define DREKKAR_ST_RESIZE(ptr, old_size, new_size) drekkar_st_resize(ptr, old_size, new_size, __FILE__, __LINE__);
+#define DREKKAR_ST_ASSERT_MIN(ptr, size) assert(drekkar_st_is_valid_min(ptr, size))
+#define DREKKAR_ST_FREE_SIZE(ptr, size) {assert(drekkar_st_is_valid_size(ptr, size)); drekkar_st_free(ptr, __FILE__, __LINE__); ptr = NULL;}
+#define DREKKAR_ST_REALLOC(ptr, new_size) drekkar_st_realloc(ptr, new_size, __FILE__, __LINE__);
+
+#endif
+
+// End of file sys_time.h
+
 
 
 
@@ -191,90 +276,6 @@ void* drekkar_linear_storage_size_top(drekkar_linear_storage_size_type *s);
 
 
 
-// Begin of file sys_time.h
-
-
-
-
-// If using C++ there is a another way:
-// http://www.cplusplus.com/faq/sequences/arrays/sizeof-array/#cpp
-#ifndef SIZEOF_ARRAY
-//#define SIZEOF_ARRAY( a ) (sizeof( a ) / sizeof( a[ 0 ] ))
-#define SIZEOF_ARRAY(a) ((sizeof(a)/sizeof(0[a])) / ((size_t)(!(sizeof(a) % sizeof(0[a])))))
-#endif
-
-
-int64_t drekkar_st_get_time_us();
-void drekkar_st_init();
-void drekkar_st_deinit();
-
-
-
-// Here are some functions and macros to help debugging memory leaks.
-// Performance will be affected.
-// Define macro DREKKAR_ST_DEBUG to get more debugging info.
-// Or define macro NDEBUG to get less.
-// For medium level do not define any of the two.
-// WARNING DREKKAR_ST_DEBUG is not thread safe. So do not use DREKKAR_ST_DEBUG if multi threading is used.
-//#define DREKKAR_ST_DEBUG
-//#define NDEBUG
-
-
-#ifndef DREKKAR_ST_DEBUG
-
-void* drekkar_st_malloc(size_t size);
-void* drekkar_st_calloc(size_t num, size_t size);
-void drekkar_st_free(void* ptr);
-int drekkar_st_is_valid_size(const void* ptr, size_t size);
-void* drekkar_st_resize(void* ptr, size_t old_size, size_t new_size);
-void* drekkar_st_realloc(void* ptr, size_t new_size);
-void* drekkar_st_recalloc(void *ptr, size_t old_num, size_t new_num, size_t size);
-int drekkar_st_is_valid_min(const void* ptr, size_t size);
-size_t drekkar_st_size(const void* ptr);
-
-#ifndef NDEBUG
-#define DREKKAR_ST_MALLOC(size) drekkar_st_malloc(size)
-#define DREKKAR_ST_CALLOC(num, size) drekkar_st_calloc(num, size)
-#define DREKKAR_ST_FREE(ptr) {drekkar_st_free(ptr); ptr = NULL;}
-#define DREKKAR_ST_ASSERT_SIZE(ptr, size) assert(st_is_valid(ptr, size))
-#define DREKKAR_ST_RESIZE(ptr, old_size, new_size) drekkar_st_resize(ptr, old_size, new_size);
-#define DREKKAR_ST_ASSERT_MIN(ptr, size) assert(drekkar_st_is_valid_min(ptr, size))
-#define DREKKAR_ST_FREE_SIZE(ptr, size) {assert(drekkar_st_is_valid_size(ptr, size)); drekkar_st_free(ptr); ptr = NULL;}
-#define DREKKAR_ST_REALLOC(ptr, new_size) drekkar_st_realloc(ptr, new_size);
-#define ST_RECALLOC(ptr, old_num, new_num, size) drekkar_st_recalloc(ptr, old_num, new_num, size);
-#else
-#define DREKKAR_ST_MALLOC(size) malloc(size);
-#define DREKKAR_ST_CALLOC(num, size) calloc(num, size)
-#define DREKKAR_ST_FREE(ptr) free(ptr)
-#define DREKKAR_ST_ASSERT_SIZE(ptr, size)
-#define DREKKAR_ST_ASSERT_MIN(ptr, size)
-#define DREKKAR_ST_FREE_SIZE(ptr, size) free(ptr))
-#endif
-
-#else
-
-void* drekkar_st_malloc(size_t size, const char *file, unsigned int line);
-void* drekkar_st_calloc(size_t num, size_t size, const char *file, unsigned int line);
-void drekkar_st_free(const void* ptr, const char *file, unsigned int line);
-int drekkar_st_is_valid_size(const void* ptr, size_t size);
-void* drekkar_st_resize(void* ptr, size_t old_size, size_t new_size, const char *file, unsigned int line);
-void* drekkar_st_realloc(void* ptr, size_t new_size, const char *file, unsigned int line);
-int drekkar_st_is_valid_min(const void* ptr, size_t size);
-size_t drekkar_st_size(const void* ptr);
-void drekkar_st_log_linked_list();
-
-#define DREKKAR_ST_MALLOC(size) drekkar_st_malloc(size, __FILE__, __LINE__)
-#define DREKKAR_ST_CALLOC(num, size) drekkar_st_calloc(num, size, __FILE__, __LINE__)
-#define DREKKAR_ST_FREE(ptr) {drekkar_st_free(ptr, __FILE__, __LINE__); ptr = NULL;}
-#define DREKKAR_ST_ASSERT_SIZE(ptr, size) assert(drekkar_st_is_valid_size(ptr, size))
-#define DREKKAR_ST_RESIZE(ptr, old_size, new_size) drekkar_st_resize(ptr, old_size, new_size, __FILE__, __LINE__);
-#define DREKKAR_ST_ASSERT_MIN(ptr, size) assert(drekkar_st_is_valid_min(ptr, size))
-#define DREKKAR_ST_FREE_SIZE(ptr, size) {assert(drekkar_st_is_valid_size(ptr, size)); drekkar_st_free(ptr, __FILE__, __LINE__); ptr = NULL;}
-#define DREKKAR_ST_REALLOC(ptr, new_size) drekkar_st_realloc(ptr, new_size, __FILE__, __LINE__);
-
-#endif
-
-// End of file sys_time.h
 
 
 // Begin of file virtual_storage.h

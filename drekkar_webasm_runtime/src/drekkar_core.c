@@ -58,6 +58,339 @@
 
 
 
+// Begin of file sys_time.h
+
+
+
+
+static long alloc_counter = 0;
+static long alloc_size = 0;
+static int logged_alloc_counter = 0x10000;
+
+
+
+void drekkar_st_init()
+{
+	alloc_counter = 0;
+	alloc_size = 0;
+}
+
+void drekkar_st_deinit()
+{
+	if ((alloc_counter) || (alloc_size))
+	{
+		printf("Memory leak detected: alloc_counter %ld, %ld bytes.\n", alloc_counter, alloc_size);
+		#ifdef ST_DEBUG
+		printf("Memory first allocated here:\n");
+		st_log_linked_list();
+		printf("\n");
+		#else
+		assert(alloc_counter == 0);
+		#endif
+	}
+
+	alloc_counter = 0;
+	alloc_size = 0;
+}
+
+// Uncomment if all memory shall be filled with pattern when allocated.
+#define ST_DEBUG_FILL_PATTERN 0x00
+
+#define ST_MAGIC_NUMBER 0x67
+
+#if defined(__x86_64)
+#define ST_MAX_SIZE 0x100000000000
+#else
+#define ST_MAX_SIZE 0xF0000000
+#endif
+
+
+typedef struct header header;
+
+struct header
+{
+	size_t size; // including header and footer
+	#ifdef DREKKAR_ST_DEBUG
+	header *prev;
+	header *next;
+	const char* file;
+	size_t line;
+	#endif
+};
+
+#define ST_HEADER_SIZE (sizeof(header))
+#define ST_FOOTER_SIZE 1
+
+#ifdef DREKKAR_ST_DEBUG
+
+// TODO These are not thread safe. So do not use DREKKAR_ST_DEBUG if multithreading is used.
+static header *head = NULL;
+static header *tail = NULL;
+
+static void add_linked_list(header *h, const char *file, unsigned int line)
+{
+	if (tail == NULL)
+	{
+		assert(head==NULL);
+		head = h;
+		tail = h;
+		h->next = NULL;
+		h->prev = NULL;
+	}
+	else
+	{
+		// New objects are added at tail.
+		assert(head!=NULL);
+		assert(tail->next==NULL);
+		h->prev = tail;
+		tail->next = h;
+		tail = h;
+		h->next = NULL;
+	}
+	h->file = file;
+	h->line = line;
+}
+
+static void remove_from_linked_list(header *h, const char *file, unsigned int line)
+{
+	if (h->prev != NULL)
+	{
+		h->prev->next = h->next;
+	}
+	else
+	{
+		head = h->next;
+	}
+	if (h->next != NULL)
+	{
+		h->next->prev = h->prev;
+	}
+	else
+	{
+		tail = h->prev;
+	}
+}
+
+void drekkar_st_log_linked_list()
+{
+	header* ptr = head;
+	while(ptr)
+	{
+		printf("%s:%zu (%zu bytes)\n", ptr->file, ptr->line, ptr->size-(ST_HEADER_SIZE+ST_FOOTER_SIZE));
+		ptr = ptr->next;
+	}
+}
+#endif
+
+// To help debugging use these instead of malloc/free directly.
+// This will add a size field to every allocated data area and
+// when free is done it can check that data is valid.
+// This will cause some overhead but it can easily be removed
+// later when the program works perfectly.
+
+// Allocate a block of memory, when no longer needed sys_free
+// must be called.
+#ifndef DREKKAR_ST_DEBUG
+void* drekkar_st_malloc(size_t size)
+#else
+void* drekkar_st_malloc(size_t size, const char *file, unsigned int line)
+#endif
+{
+	assert(size<=ST_MAX_SIZE);
+
+	const size_t size_inc_header_footer = size + (ST_HEADER_SIZE+ST_FOOTER_SIZE);
+	uint8_t* p = malloc(size_inc_header_footer);
+	assert(p != 0);
+	#ifdef ST_DEBUG_FILL_PATTERN
+	memset(p, ST_DEBUG_FILL_PATTERN, size_inc_header_footer);
+	#endif
+	header* h = (header*)p;
+
+	h->size = size_inc_header_footer;
+	//*(size_t*)(ptr+size_inc_header_footer-ST_FOOTER_SIZE) = ST_MAGIC_NUMBER;
+	p[size_inc_header_footer-1] = ST_MAGIC_NUMBER;
+	assert(p[size_inc_header_footer-1] == ST_MAGIC_NUMBER);
+	++alloc_counter;
+	alloc_size += size;
+	#ifdef DREKKAR_ST_DEBUG
+	add_linked_list(h, file, line);
+	#endif
+	// Some logging (this can be removed later).
+	if (alloc_counter >= (2*logged_alloc_counter))
+	{
+		printf("sys_alloc %lu %ld\n", alloc_size, alloc_counter);
+		logged_alloc_counter = alloc_counter;
+	}
+
+	return p + ST_HEADER_SIZE;
+}
+
+#ifndef DREKKAR_ST_DEBUG
+void* drekkar_st_calloc(size_t num, size_t size)
+#else
+void* drekkar_st_calloc(size_t num, size_t size, const char *file, unsigned int line)
+#endif
+{
+	assert(size<ST_MAX_SIZE);
+	const size_t size_inc_header_footer = (num * size) + (ST_HEADER_SIZE+ST_FOOTER_SIZE);
+	uint8_t* p = malloc(size_inc_header_footer);
+	assert(p != 0);
+	memset(p, 0, size_inc_header_footer);
+	header* h = (header*)p;
+	h->size = size_inc_header_footer;
+	//*(size_t*)(ptr+size_inc_header_footer-ST_FOOTER_SIZE) = ST_MAGIC_NUMBER;
+	p[size_inc_header_footer-1] = ST_MAGIC_NUMBER;
+	assert(p[size_inc_header_footer-1] == ST_MAGIC_NUMBER);
+	++alloc_counter;
+	alloc_size += (num * size);
+	#ifdef DREKKAR_ST_DEBUG
+	add_linked_list(h, file, line);
+	#endif
+	// Some logging (this can be removed later).
+	if (alloc_counter >= (2*logged_alloc_counter))
+	{
+		printf("sys_alloc %lu %ld\n", alloc_size, alloc_counter);
+		logged_alloc_counter = alloc_counter;
+	}
+
+	return p + ST_HEADER_SIZE;
+}
+
+// This must be called for all memory blocks allocated using
+// sys_alloc when the memory block is no longer needed.
+// TODO Shall we allow free on a NULL pointer? Probably not but for now we do.
+#ifndef DREKKAR_ST_DEBUG
+void drekkar_st_free(void* ptr)
+#else
+void drekkar_st_free(const void* ptr, const char *file, unsigned int line)
+#endif
+{
+	//printf("sys_free %ld %d\n", (long)size, alloc_counter);
+	if (ptr != NULL)
+	{
+		uint8_t *p = (uint8_t*)ptr - ST_HEADER_SIZE;
+		header* h = (header*)p;
+		const size_t size_inc_header_footer = h->size;
+		assert((size_inc_header_footer>ST_HEADER_SIZE) && (size_inc_header_footer < (ST_MAX_SIZE + (ST_HEADER_SIZE + ST_FOOTER_SIZE))));
+		assert(p[size_inc_header_footer-1] == ST_MAGIC_NUMBER);
+		h->size = 0;
+		#ifdef DREKKAR_ST_DEBUG
+		remove_from_linked_list(h, file, line);
+		#endif
+		#ifdef ST_DEBUG_FILL_PATTERN
+		memset(p, 0, size_inc_header_footer);
+		#else
+		p[size_inc_header_footer-1] = 0;
+		#endif
+		free(p);
+		--alloc_counter;
+		alloc_size -= (size_inc_header_footer - (ST_HEADER_SIZE+ST_FOOTER_SIZE));
+		assert(alloc_counter>=0);
+	}
+	else
+	{
+		//printf("sys_free NULL %zu\n", size);
+	}
+}
+
+// This can be used to check that a memory block allocated by sys_alloc
+// is still valid (at least points to an object of expected size).
+int drekkar_st_is_valid_size(const void* ptr, size_t size)
+{
+	const uint8_t *p = (uint8_t*)ptr - ST_HEADER_SIZE;
+	const header* h = (header*)p;
+	const size_t size_inc_header_footer = h->size;
+	return ((ptr != NULL) && (size_inc_header_footer == size + (ST_HEADER_SIZE+ST_FOOTER_SIZE)) && (p[size_inc_header_footer-1] == ST_MAGIC_NUMBER));
+}
+
+int drekkar_st_is_valid_min(const void* ptr, size_t size)
+{
+	const uint8_t *p = (uint8_t*)ptr - ST_HEADER_SIZE;
+	const header* h = (header*)p;
+	const size_t size_inc_header_footer = h->size;
+	return (ptr != NULL) && (size_inc_header_footer >= size + (ST_HEADER_SIZE+ST_FOOTER_SIZE)) && (p[size_inc_header_footer-1] == ST_MAGIC_NUMBER);
+}
+
+#ifndef DREKKAR_ST_DEBUG
+void* drekkar_st_resize(void* ptr, size_t old_size, size_t new_size)
+#else
+void* drekkar_st_resize(void* ptr, size_t old_size, size_t new_size, const char *file, unsigned int line)
+#endif
+{
+	assert((drekkar_st_is_valid_size(ptr, old_size)) && (new_size>old_size));
+	uint8_t* old_ptr = ptr - ST_HEADER_SIZE;
+	const size_t new_size_inc_header_footer = new_size + (ST_HEADER_SIZE+ST_FOOTER_SIZE);
+	#ifdef DREKKAR_ST_DEBUG
+	remove_from_linked_list((header*)old_ptr, file, line);
+	#endif
+	uint8_t *new_ptr = realloc(old_ptr, new_size_inc_header_footer);
+	assert(new_ptr != 0);
+	#ifdef ST_DEBUG_FILL_PATTERN
+	if (new_size > old_size)
+	{
+		memset(new_ptr + ST_HEADER_SIZE + old_size, ST_DEBUG_FILL_PATTERN, new_size - old_size);
+	}
+	#endif
+	#ifdef DREKKAR_ST_DEBUG
+	add_linked_list((header*)new_ptr, file, line);
+	#endif
+
+	*(size_t*)new_ptr = new_size_inc_header_footer;
+	new_ptr[new_size_inc_header_footer-1] = ST_MAGIC_NUMBER;
+	assert(new_ptr[new_size_inc_header_footer-1] == ST_MAGIC_NUMBER);
+	alloc_size += (new_size - old_size);
+	return new_ptr + ST_HEADER_SIZE;
+}
+
+// Shall be same as standard realloc but with our extra debugging checks.
+#ifndef DREKKAR_ST_DEBUG
+void* drekkar_st_realloc(void* ptr, size_t new_size)
+#else
+void* drekkar_st_realloc(void* ptr, size_t new_size, const char *file, unsigned int line)
+#endif
+{
+	if (ptr)
+	{
+		assert(*(size_t*)(ptr - ST_HEADER_SIZE) >= (ST_HEADER_SIZE+ST_FOOTER_SIZE));
+		const uint8_t *old_ptr = (uint8_t*)ptr - ST_HEADER_SIZE;
+		const size_t old_size_inc_header_footer = *(size_t*)old_ptr;
+		const size_t old_size = old_size_inc_header_footer - (ST_HEADER_SIZE+ST_FOOTER_SIZE);
+		#ifndef DREKKAR_ST_DEBUG
+		return drekkar_st_resize(ptr, old_size, new_size);
+		#else
+		return drekkar_st_resize(ptr, old_size, new_size, file, line);
+		#endif
+	}
+	else
+	{
+		#ifdef DREKKAR_ST_DEBUG
+		return drekkar_st_malloc(new_size, __FILE__, __LINE__);
+		#else
+		return drekkar_st_malloc(new_size);
+		#endif
+	}
+}
+
+
+size_t drekkar_st_size(const void *ptr)
+{
+	if (ptr)
+	{
+		assert(*(size_t*)(ptr - ST_HEADER_SIZE) >= (ST_HEADER_SIZE+ST_FOOTER_SIZE));
+		uint8_t *p = (uint8_t*)ptr - ST_HEADER_SIZE;
+		size_t old_size_inc_header_footer = *(size_t*)p;
+		return old_size_inc_header_footer - (ST_HEADER_SIZE+ST_FOOTER_SIZE);
+	}
+	else
+	{
+		return 0;
+	}
+}
+
+// End of file sys_time.h
+
+
+
 
 
 // Begin of file hash_list.c
@@ -573,336 +906,6 @@ void* drekkar_linear_storage_size_top(drekkar_linear_storage_size_type *s)
 
 
 
-// Begin of file sys_time.h
-
-
-
-
-static long alloc_counter = 0;
-static long alloc_size = 0;
-static int logged_alloc_counter = 0x10000;
-
-
-
-void drekkar_st_init()
-{
-	alloc_counter = 0;
-	alloc_size = 0;
-}
-
-void drekkar_st_deinit()
-{
-	if ((alloc_counter) || (alloc_size))
-	{
-		printf("Memory leak detected: alloc_counter %ld, %ld bytes.\n", alloc_counter, alloc_size);
-		#ifdef ST_DEBUG
-		printf("Memory first allocated here:\n");
-		st_log_linked_list();
-		printf("\n");
-		#else
-		assert(alloc_counter == 0);
-		#endif
-	}
-
-	alloc_counter = 0;
-	alloc_size = 0;
-}
-
-// Uncomment if all memory shall be filled with pattern when allocated.
-#define ST_DEBUG_FILL_PATTERN 0x00
-
-#define ST_MAGIC_NUMBER 0x67
-
-#if defined(__x86_64)
-#define ST_MAX_SIZE 0x100000000000
-#else
-#define ST_MAX_SIZE 0xF0000000
-#endif
-
-
-typedef struct header header;
-
-struct header
-{
-	size_t size; // including header and footer
-	#ifdef DREKKAR_ST_DEBUG
-	header *prev;
-	header *next;
-	const char* file;
-	size_t line;
-	#endif
-};
-
-#define ST_HEADER_SIZE (sizeof(header))
-#define ST_FOOTER_SIZE 1
-
-#ifdef DREKKAR_ST_DEBUG
-
-// TODO These are not thread safe. So do not use DREKKAR_ST_DEBUG if multithreading is used.
-static header *head = NULL;
-static header *tail = NULL;
-
-static void add_linked_list(header *h, const char *file, unsigned int line)
-{
-	if (tail == NULL)
-	{
-		assert(head==NULL);
-		head = h;
-		tail = h;
-		h->next = NULL;
-		h->prev = NULL;
-	}
-	else
-	{
-		// New objects are added at tail.
-		assert(head!=NULL);
-		assert(tail->next==NULL);
-		h->prev = tail;
-		tail->next = h;
-		tail = h;
-		h->next = NULL;
-	}
-	h->file = file;
-	h->line = line;
-}
-
-static void remove_from_linked_list(header *h, const char *file, unsigned int line)
-{
-	if (h->prev != NULL)
-	{
-		h->prev->next = h->next;
-	}
-	else
-	{
-		head = h->next;
-	}
-	if (h->next != NULL)
-	{
-		h->next->prev = h->prev;
-	}
-	else
-	{
-		tail = h->prev;
-	}
-}
-
-void drekkar_st_log_linked_list()
-{
-	header* ptr = head;
-	while(ptr)
-	{
-		printf("%s:%zu (%zu bytes)\n", ptr->file, ptr->line, ptr->size-(ST_HEADER_SIZE+ST_FOOTER_SIZE));
-		ptr = ptr->next;
-	}
-}
-#endif
-
-// To help debugging use these instead of malloc/free directly.
-// This will add a size field to every allocated data area and
-// when free is done it can check that data is valid.
-// This will cause some overhead but it can easily be removed
-// later when the program works perfectly.
-
-// Allocate a block of memory, when no longer needed sys_free
-// must be called.
-#ifndef DREKKAR_ST_DEBUG
-void* drekkar_st_malloc(size_t size)
-#else
-void* drekkar_st_malloc(size_t size, const char *file, unsigned int line)
-#endif
-{
-	assert(size<=ST_MAX_SIZE);
-
-	const size_t size_inc_header_footer = size + (ST_HEADER_SIZE+ST_FOOTER_SIZE);
-	uint8_t* p = malloc(size_inc_header_footer);
-	assert(p != 0);
-	#ifdef ST_DEBUG_FILL_PATTERN
-	memset(p, ST_DEBUG_FILL_PATTERN, size_inc_header_footer);
-	#endif
-	header* h = (header*)p;
-
-	h->size = size_inc_header_footer;
-	//*(size_t*)(ptr+size_inc_header_footer-ST_FOOTER_SIZE) = ST_MAGIC_NUMBER;
-	p[size_inc_header_footer-1] = ST_MAGIC_NUMBER;
-	assert(p[size_inc_header_footer-1] == ST_MAGIC_NUMBER);
-	++alloc_counter;
-	alloc_size += size;
-	#ifdef DREKKAR_ST_DEBUG
-	add_linked_list(h, file, line);
-	#endif
-	// Some logging (this can be removed later).
-	if (alloc_counter >= (2*logged_alloc_counter))
-	{
-		printf("sys_alloc %lu %ld\n", alloc_size, alloc_counter);
-		logged_alloc_counter = alloc_counter;
-	}
-
-	return p + ST_HEADER_SIZE;
-}
-
-#ifndef DREKKAR_ST_DEBUG
-void* drekkar_st_calloc(size_t num, size_t size)
-#else
-void* drekkar_st_calloc(size_t num, size_t size, const char *file, unsigned int line)
-#endif
-{
-	assert(size<ST_MAX_SIZE);
-	const size_t size_inc_header_footer = (num * size) + (ST_HEADER_SIZE+ST_FOOTER_SIZE);
-	uint8_t* p = malloc(size_inc_header_footer);
-	assert(p != 0);
-	memset(p, 0, size_inc_header_footer);
-	header* h = (header*)p;
-	h->size = size_inc_header_footer;
-	//*(size_t*)(ptr+size_inc_header_footer-ST_FOOTER_SIZE) = ST_MAGIC_NUMBER;
-	p[size_inc_header_footer-1] = ST_MAGIC_NUMBER;
-	assert(p[size_inc_header_footer-1] == ST_MAGIC_NUMBER);
-	++alloc_counter;
-	alloc_size += (num * size);
-	#ifdef DREKKAR_ST_DEBUG
-	add_linked_list(h, file, line);
-	#endif
-	// Some logging (this can be removed later).
-	if (alloc_counter >= (2*logged_alloc_counter))
-	{
-		printf("sys_alloc %lu %ld\n", alloc_size, alloc_counter);
-		logged_alloc_counter = alloc_counter;
-	}
-
-	return p + ST_HEADER_SIZE;
-}
-
-// This must be called for all memory blocks allocated using
-// sys_alloc when the memory block is no longer needed.
-// TODO Shall we allow free on a NULL pointer? Probably not but for now we do.
-#ifndef DREKKAR_ST_DEBUG
-void drekkar_st_free(void* ptr)
-#else
-void drekkar_st_free(const void* ptr, const char *file, unsigned int line)
-#endif
-{
-	//printf("sys_free %ld %d\n", (long)size, alloc_counter);
-	if (ptr != NULL)
-	{
-		uint8_t *p = (uint8_t*)ptr - ST_HEADER_SIZE;
-		header* h = (header*)p;
-		const size_t size_inc_header_footer = h->size;
-		assert((size_inc_header_footer>ST_HEADER_SIZE) && (size_inc_header_footer < (ST_MAX_SIZE + (ST_HEADER_SIZE + ST_FOOTER_SIZE))));
-		assert(p[size_inc_header_footer-1] == ST_MAGIC_NUMBER);
-		h->size = 0;
-		#ifdef DREKKAR_ST_DEBUG
-		remove_from_linked_list(h, file, line);
-		#endif
-		#ifdef ST_DEBUG_FILL_PATTERN
-		memset(p, 0, size_inc_header_footer);
-		#else
-		p[size_inc_header_footer-1] = 0;
-		#endif
-		free(p);
-		--alloc_counter;
-		alloc_size -= (size_inc_header_footer - (ST_HEADER_SIZE+ST_FOOTER_SIZE));
-		assert(alloc_counter>=0);
-	}
-	else
-	{
-		//printf("sys_free NULL %zu\n", size);
-	}
-}
-
-// This can be used to check that a memory block allocated by sys_alloc
-// is still valid (at least points to an object of expected size).
-int drekkar_st_is_valid_size(const void* ptr, size_t size)
-{
-	const uint8_t *p = (uint8_t*)ptr - ST_HEADER_SIZE;
-	const header* h = (header*)p;
-	const size_t size_inc_header_footer = h->size;
-	return ((ptr != NULL) && (size_inc_header_footer == size + (ST_HEADER_SIZE+ST_FOOTER_SIZE)) && (p[size_inc_header_footer-1] == ST_MAGIC_NUMBER));
-}
-
-int drekkar_st_is_valid_min(const void* ptr, size_t size)
-{
-	const uint8_t *p = (uint8_t*)ptr - ST_HEADER_SIZE;
-	const header* h = (header*)p;
-	const size_t size_inc_header_footer = h->size;
-	return (ptr != NULL) && (size_inc_header_footer >= size + (ST_HEADER_SIZE+ST_FOOTER_SIZE)) && (p[size_inc_header_footer-1] == ST_MAGIC_NUMBER);
-}
-
-#ifndef DREKKAR_ST_DEBUG
-void* drekkar_st_resize(void* ptr, size_t old_size, size_t new_size)
-#else
-void* drekkar_st_resize(void* ptr, size_t old_size, size_t new_size, const char *file, unsigned int line)
-#endif
-{
-	assert((drekkar_st_is_valid_size(ptr, old_size)) && (new_size>old_size));
-	uint8_t* old_ptr = ptr - ST_HEADER_SIZE;
-	const size_t new_size_inc_header_footer = new_size + (ST_HEADER_SIZE+ST_FOOTER_SIZE);
-	#ifdef DREKKAR_ST_DEBUG
-	remove_from_linked_list((header*)old_ptr, file, line);
-	#endif
-	uint8_t *new_ptr = realloc(old_ptr, new_size_inc_header_footer);
-	assert(new_ptr != 0);
-	#ifdef ST_DEBUG_FILL_PATTERN
-	if (new_size > old_size)
-	{
-		memset(new_ptr + ST_HEADER_SIZE + old_size, ST_DEBUG_FILL_PATTERN, new_size - old_size);
-	}
-	#endif
-	#ifdef DREKKAR_ST_DEBUG
-	add_linked_list((header*)new_ptr, file, line);
-	#endif
-
-	*(size_t*)new_ptr = new_size_inc_header_footer;
-	new_ptr[new_size_inc_header_footer-1] = ST_MAGIC_NUMBER;
-	assert(new_ptr[new_size_inc_header_footer-1] == ST_MAGIC_NUMBER);
-	alloc_size += (new_size - old_size);
-	return new_ptr + ST_HEADER_SIZE;
-}
-
-// Shall be same as standard realloc but with our extra debugging checks.
-#ifndef DREKKAR_ST_DEBUG
-void* drekkar_st_realloc(void* ptr, size_t new_size)
-#else
-void* drekkar_st_realloc(void* ptr, size_t new_size, const char *file, unsigned int line)
-#endif
-{
-	if (ptr)
-	{
-		assert(*(size_t*)(ptr - ST_HEADER_SIZE) >= (ST_HEADER_SIZE+ST_FOOTER_SIZE));
-		const uint8_t *old_ptr = (uint8_t*)ptr - ST_HEADER_SIZE;
-		const size_t old_size_inc_header_footer = *(size_t*)old_ptr;
-		const size_t old_size = old_size_inc_header_footer - (ST_HEADER_SIZE+ST_FOOTER_SIZE);
-		#ifndef DREKKAR_ST_DEBUG
-		return drekkar_st_resize(ptr, old_size, new_size);
-		#else
-		return drekkar_st_resize(ptr, old_size, new_size, file, line);
-		#endif
-	}
-	else
-	{
-		#ifdef DREKKAR_ST_DEBUG
-		return drekkar_st_malloc(new_size, __FILE__, __LINE__);
-		#else
-		return drekkar_st_malloc(new_size);
-		#endif
-	}
-}
-
-
-size_t drekkar_st_size(const void *ptr)
-{
-	if (ptr)
-	{
-		assert(*(size_t*)(ptr - ST_HEADER_SIZE) >= (ST_HEADER_SIZE+ST_FOOTER_SIZE));
-		uint8_t *p = (uint8_t*)ptr - ST_HEADER_SIZE;
-		size_t old_size_inc_header_footer = *(size_t*)p;
-		return old_size_inc_header_footer - (ST_HEADER_SIZE+ST_FOOTER_SIZE);
-	}
-	else
-	{
-		return 0;
-	}
-}
-
-// End of file sys_time.h
 
 
 // Begin of file virtual_storage.h
