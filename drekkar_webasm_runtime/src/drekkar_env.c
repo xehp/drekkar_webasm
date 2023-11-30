@@ -258,29 +258,34 @@ static long parse_data_sections(const drekkar_wa_prog *p, drekkar_wa_data *d)
 }
 
 
-static long set_command_line_arguments(drekkar_wa_data *d, uint32_t argc, const char **argv)
+static long set_command_line_arguments(drekkar_wa_env_type *e)
 {
-	#ifdef RUN_TEST_WASM
-	// The test web assembly will expect two values on stack.
-	wa_push_value_I32(d, 11);
-	wa_push_value_I32(d, 13);
-	return 0;
-	#else
-
-	const long r = drekkar_wa_set_command_line_arguments(d, argc, argv);
-	assert(d->exception[sizeof(d->exception)-1]==0);
-	if (r)
+	if (e->arg_numbers == 1)
 	{
-		printf("exception: %ld %s\n", r, d->exception);
-		d->exception[0] = 0;
+		for(int i = 0; i < e->argc; i++)
+		{
+			int64_t n = atoll(e->argv[i]);
+			drekkar_wa_push_value_i64(e->d, n);
+		}
+		return 0;
 	}
-	else if (d->exception[0] != 0)
+	else
 	{
-		printf("Unhandled exception: %s\n", d->exception);
-		d->exception[0] = 0;
+		e->argv[0] = e->file_name;
+		const long r = drekkar_wa_set_command_line_arguments(e->d, e->argc, e->argv);
+		assert(e->d->exception[sizeof(e->d->exception)-1]==0);
+		if (r)
+		{
+			printf("exception: %ld %s\n", r, e->d->exception);
+			e->d->exception[0] = 0;
+		}
+		else if (e->d->exception[0] != 0)
+		{
+			printf("Unhandled exception: %s\n", e->d->exception);
+			e->d->exception[0] = 0;
+		}
+		return r;
 	}
-	return r;
-	#endif
 }
 
 // TODO Move this to drekkar_core.c
@@ -390,13 +395,9 @@ static const drekkar_wa_function* find_main(const drekkar_wa_prog *p)
 	#endif
 
 	if (f == NULL) {f = drekkar_wa_find_exported_function(p, "__main_argc_argv");}
-
 	if (f == NULL) {f = drekkar_wa_find_exported_function(p, "main");}
-
 	if (f == NULL) {f = drekkar_wa_find_exported_function(p, "_start");}
-
 	if (f == NULL) {f = drekkar_wa_find_exported_function(p, "start");}
-
 	if (f == NULL) {f = drekkar_wa_find_exported_function(p, "test");}
 
 	return f;
@@ -458,12 +459,10 @@ long drekkar_wa_env_tick(drekkar_wa_env_type *e)
 {
 	long r = 0;
 
-	e->argv[0] = e->file_name;
-
 	r = parse_data_sections(e->p, e->d);
 	if (r) {return r;}
 
-	r = set_command_line_arguments(e->d, e->argc, e->argv);
+	r = set_command_line_arguments(e);
 	if (r) {return r;}
 
 	r = find_and_call(e->p, e->d, e->log);

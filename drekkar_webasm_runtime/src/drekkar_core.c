@@ -1889,9 +1889,8 @@ long drekkar_wa_tick(const drekkar_wa_prog *p, drekkar_wa_data *d)
 				block->block_type_code = wa_block_type_block;
 				block->func_type_idx = blocktype;
 				block->block_and_loop_info.br_addr = find_br_addr(p, d, d->pc.pos);
-				block->stack_pointer = d->sp; // Or just set it to zero?
+				block->stack_pointer = d->sp;
 				block->frame_pointer = d->fp;
-				block->func_info.return_addr = d->pc.pos;
 
 				const drekkar_wa_func_type_type *ptr = drekkar_get_func_type_ptr(p, block->func_type_idx);
 				if (ptr == NULL)
@@ -1916,7 +1915,6 @@ long drekkar_wa_tick(const drekkar_wa_prog *p, drekkar_wa_data *d)
 				block->block_and_loop_info.br_addr = d->pc.pos;
 				block->stack_pointer = d->sp;
 				block->frame_pointer = d->fp;
-				block->func_info.return_addr = d->pc.pos;
 
 				const drekkar_wa_func_type_type *ptr = drekkar_get_func_type_ptr(p, block->func_type_idx);
 				if (ptr == NULL)
@@ -1928,13 +1926,15 @@ long drekkar_wa_tick(const drekkar_wa_prog *p, drekkar_wa_data *d)
 				if (--d->gas_meter <= 0) {return DREKKAR_WA_NEED_MORE_GAS;}
 				break;
 			}
-			case 0x04:
-			{
+			case 0x04: // if
+			{ // not much tested
 				const int64_t blocktype = leb_read_signed(&d->pc, 33);
 
 				drekkar_block_stack_entry *block = (drekkar_block_stack_entry*) drekkar_linear_storage_size_push(&d->block_stack);
 				block->block_type_code = wa_block_type_if;
 				block->func_type_idx = blocktype;
+				block->stack_pointer = d->sp;
+				block->frame_pointer = d->fp;
 
 				// Here we search the addresses of both else and end regardless of condition.
 				// We could check condition and search for only one of those. But emscripten
@@ -1966,18 +1966,13 @@ long drekkar_wa_tick(const drekkar_wa_prog *p, drekkar_wa_data *d)
 					return DREKKAR_WA_NO_END_OR_ELSE;
 				}
 
-
-				block->stack_pointer = d->sp;
-				block->frame_pointer = d->fp;
-				block->func_info.return_addr = d->pc.pos;
-
 				const uint32_t cond = POP_I32(d);
 				if (cond == 0)
 				{
 					// Condition was not true, check if there is an else.
 					if (block->if_else_info.else_addr == 0)
 					{
-						// No else block, pop the if block and skip to end.
+						// No else block, skip to end.
 						d->block_stack.size--;
 						d->pc.pos = block->if_else_info.end_addr + 1;
 					}
@@ -2623,11 +2618,13 @@ long drekkar_wa_tick(const drekkar_wa_prog *p, drekkar_wa_data *d)
 
 
 			case 0x3f: // current_memory
+			{
 				uint32_t memidx = leb_read(&d->pc, 32);
 				if (memidx != 0) {return DREKKAR_WA_ONLY_ONE_MEMORY_IS_SUPPORTED;}
 				PUSH_I32(d, d->memory.current_size_in_pages);
 				D("current_memory 0x%x\n", d->memory.current_size_in_pages);
 				break;
+			}
 			case 0x40: // grow_memory
 			{
 				// [2] Return value: The previous size of the memory, in units of WebAssembly pages.

@@ -37,12 +37,13 @@ static int does_folder_exist(const char* pathname)
 static void print_help(const char* name) {
 	printf("Usage: %s [options] <filename> <arguments for guest>\n", name);
 	printf("Options:\n");
-	printf("  --help           Display this information.\n");
-	printf("  --version        Display the version and copyright info.\n");
-	printf("  --logging-on     More logging.\n");
+	printf("  --help         Display this information.\n");
+	printf("  --version      Display the version and copyright info.\n");
+	printf("  --logging-on   More logging.\n");
+	printf("  --push-numbers Push arguments as numbers (not as argv/argc).\n");
 	printf("Where:\n");
-	printf("  <filename> shall be the name of a \".wasm\" file.\n");
-	printf("  <arguments for guest> will be passed on to web assembly code.\n");
+	printf("  <filename>     shall be the name of a \".wasm\" file.\n");
+	printf("  <argv/argc>    will be passed on to web assembly code.\n");
 }
 
 static void print_version(const char* name) {
@@ -181,6 +182,11 @@ int main(int argc, char** argv)
 			else if (strcmp(arg, "--logging-on") == 0)
 			{
 				e.log = stdout;
+			}
+			else if (strcmp(arg, "--push-numbers") == 0)
+			{
+				e.arg_numbers = 1;
+				e.argc = 0;
 			}
 			else
 			{
