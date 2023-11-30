@@ -64,7 +64,6 @@ static size_t load_file(drekkar_linear_storage_8_type *storage, const char* file
 	}
 
 	fclose(fp);
-	printf("Bytes loaded from file '%s' %d\n", file_path, (int)storage->size);
 	return storage->size;
 }
 
@@ -210,7 +209,7 @@ static void assert_fail(drekkar_wa_data *d)
 	snprintf(d->exception, sizeof(d->exception), "Assertion failed: %.32s %.32s %u %.32s", cond_str, file_name, line, func_name);
 }
 
-static void drekkar_wrt_version(drekkar_wa_data *d)
+static void drekkar_wart_version(drekkar_wa_data *d)
 {
 	uint64_t v = ((uint64_t)DREKKAR_VERSION_MAJOR << 32) | (DREKKAR_VERSION_MINOR << 16) | DREKKAR_VERSION_PATCH;
 	drekkar_wa_push_value_i64(d, v);
@@ -226,7 +225,7 @@ static void register_functions(drekkar_wa_prog *p)
 	drekkar_wa_register_function(p, "emscripten_memcpy_js", wa_memcpy_big);
 	drekkar_wa_register_function(p, "setTempRet0", setTempRet0);
 	drekkar_wa_register_function(p, "getTempRet0", getTempRet0);
-	drekkar_wa_register_function(p, "drekkar_wrt_version", drekkar_wrt_version);
+	drekkar_wa_register_function(p, "drekkar_wart_version", drekkar_wart_version);
 	drekkar_wa_register_function(p, "test_log", test_log);
 	drekkar_wa_register_function(p, "test_hello", test_hello);
 }
@@ -296,11 +295,13 @@ static long long total_memory_usage(drekkar_wa_data *d)
 	d->pc.nof;
 }
 
-static void report_result(const drekkar_wa_prog *p, drekkar_wa_data *d, const drekkar_wa_function *f)
+static long report_result(const drekkar_wa_prog *p, drekkar_wa_data *d, const drekkar_wa_function *f, FILE* log)
 {
+	assert(log);
+	long ret_val = 0;
 	// If the called function had a return value it should be on the stack.
 	// Log the values on stack.
-	printf("Stack:\n");
+	fprintf(log, "Stack:\n");
 	while (d->sp != DREKKAR_SP_INITIAL) {
 		const drekkar_wa_func_type_type* type = drekkar_get_func_type_ptr(p, f->func_type_idx);
 		uint32_t nof_results = type->nof_results;
@@ -310,20 +311,23 @@ static void report_result(const drekkar_wa_prog *p, drekkar_wa_data *d, const dr
 			uint8_t t = type->results_list[d->sp];
 			char tmp[64];
 			drekkar_wa_value_and_type_to_string(tmp, sizeof(tmp), v, t);
-			printf("  %s\n", tmp);
+			fprintf(log, "  %s\n", tmp);
 		}
 		else
 		{
-			printf("  0x%llx\n", (long long)d->stack[d->sp].s64);
+			fprintf(log, "  0x%llx\n", (long long)d->stack[d->sp].s64);
 		}
+		ret_val = d->stack[d->sp].s64;
 		d->sp--;
 	}
 	assert(d->exception[sizeof(d->exception)-1]==0);
 	d->exception[0] = 0;
+	fprintf(log, "Return value from guest: %ld\n", ret_val);
+	return ret_val;
 }
 
 
-static long call_and_run_exported_function(const drekkar_wa_prog *p, drekkar_wa_data *d, const drekkar_wa_function *f)
+static long call_and_run_exported_function(const drekkar_wa_prog *p, drekkar_wa_data *d, const drekkar_wa_function *f, FILE* log)
 {
 	long long total_gas_usage = 0;
 	long r = drekkar_wa_call_exported_function(p, d, f->func_idx);
@@ -356,8 +360,11 @@ static long call_and_run_exported_function(const drekkar_wa_prog *p, drekkar_wa_
 		}
 		else if (r == DREKKAR_WA_OK)
 		{
-			report_result(p,d, f);
-			printf("Total gas and memory usage: %lld %lld\n", total_gas_usage, total_memory_usage(d));
+			if (log)
+			{
+				report_result(p, d, f, log);
+			    fprintf(log, "Total gas and memory usage: %lld %lld\n", total_gas_usage, total_memory_usage(d));
+			}
 			break;
 		}
 	}
@@ -395,12 +402,11 @@ static const drekkar_wa_function* find_main(const drekkar_wa_prog *p)
 	return f;
 }
 
-static long find_and_call(const drekkar_wa_prog *p, drekkar_wa_data *d)
+static long find_and_call(const drekkar_wa_prog *p, drekkar_wa_data *d, FILE *log)
 {
 	// Do we need to call "__wasm_call_ctors" also?
 	long r = call_ctors(p, d);
 	if (r) {return r;}
-
 
 	const drekkar_wa_function *f = find_main(p);
 	if (!f) {
@@ -408,9 +414,7 @@ static long find_and_call(const drekkar_wa_prog *p, drekkar_wa_data *d)
 		return DREKKAR_WA_FUNCTION_NOT_FOUND;
 	}
 
-	r = call_and_run_exported_function(p, d, f);
-
-	return r;
+	return call_and_run_exported_function(p, d, f, log);
 }
 
 // Returns zero (WA_OK) if OK.
@@ -419,6 +423,7 @@ long drekkar_wa_env_init(drekkar_wa_env_type *e)
 	long r = 0;
 	char exception[256] = {0};
 
+	drekkar_st_init();
 	e->p = DREKKAR_ST_MALLOC(sizeof(drekkar_wa_prog));
 	e->d = DREKKAR_ST_MALLOC(sizeof(drekkar_wa_data));
 
@@ -428,8 +433,12 @@ long drekkar_wa_env_init(drekkar_wa_env_type *e)
 
 	if (file_size < 8)
 	{
-		printf("test_was: file_size: %u\n", file_size);
+		printf("File not found (or too small): '%s', file_size %u.\n", e->file_name, file_size);
 		return DREKKAR_WA_FILE_NOT_FOUND;
+	}
+	else
+	{
+		if (e->log) {fprintf(e->log, "File loaded '%s' (%d bytes).\n", e->file_name, (int)e->bytes.size);}
 	}
 
 	drekkar_wa_prog_init(e->p);
@@ -457,7 +466,7 @@ long drekkar_wa_env_tick(drekkar_wa_env_type *e)
 	r = set_command_line_arguments(e->d, e->argc, e->argv);
 	if (r) {return r;}
 
-	r = find_and_call(e->p, e->d);
+	r = find_and_call(e->p, e->d, e->log);
 	if (r) {return r;}
 
 	return r;
@@ -470,5 +479,6 @@ void drekkar_wa_env_deinit(drekkar_wa_env_type *e)
 	drekkar_linear_storage_8_deinit(&e->bytes);
 	DREKKAR_ST_FREE(e->p);
 	DREKKAR_ST_FREE(e->d);
+	drekkar_st_deinit();
 }
 

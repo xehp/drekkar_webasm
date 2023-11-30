@@ -590,6 +590,23 @@ void drekkar_st_init()
 	alloc_size = 0;
 }
 
+void drekkar_st_deinit()
+{
+	if ((alloc_counter) || (alloc_size))
+	{
+		printf("Memory leak detected: alloc_counter %ld, %ld bytes.\n", alloc_counter, alloc_size);
+		#ifdef ST_DEBUG
+		printf("Memory first allocated here:\n");
+		st_log_linked_list();
+		printf("\n");
+		#else
+		assert(alloc_counter == 0);
+		#endif
+	}
+
+	alloc_counter = 0;
+	alloc_size = 0;
+}
 
 // Uncomment if all memory shall be filled with pattern when allocated.
 #define ST_DEBUG_FILL_PATTERN 0x00
@@ -768,7 +785,7 @@ void drekkar_st_free(const void* ptr, const char *file, unsigned int line)
 	{
 		uint8_t *p = (uint8_t*)ptr - ST_HEADER_SIZE;
 		header* h = (header*)p;
-		size_t size_inc_header_footer = h->size;
+		const size_t size_inc_header_footer = h->size;
 		assert((size_inc_header_footer>ST_HEADER_SIZE) && (size_inc_header_footer < (ST_MAX_SIZE + (ST_HEADER_SIZE + ST_FOOTER_SIZE))));
 		assert(p[size_inc_header_footer-1] == ST_MAGIC_NUMBER);
 		h->size = 0;
@@ -795,15 +812,18 @@ void drekkar_st_free(const void* ptr, const char *file, unsigned int line)
 // is still valid (at least points to an object of expected size).
 int drekkar_st_is_valid_size(const void* ptr, size_t size)
 {
-	uint8_t *p = (uint8_t*)ptr - ST_HEADER_SIZE;
-	header* h = (header*)p;
-	size_t size_inc_header_footer = h->size;
+	const uint8_t *p = (uint8_t*)ptr - ST_HEADER_SIZE;
+	const header* h = (header*)p;
+	const size_t size_inc_header_footer = h->size;
 	return ((ptr != NULL) && (size_inc_header_footer == size + (ST_HEADER_SIZE+ST_FOOTER_SIZE)) && (p[size_inc_header_footer-1] == ST_MAGIC_NUMBER));
 }
 
 int drekkar_st_is_valid_min(const void* ptr, size_t size)
 {
-	return (ptr != NULL) && (*(size_t*)(ptr - ST_HEADER_SIZE) >= size + (ST_HEADER_SIZE+ST_FOOTER_SIZE));
+	const uint8_t *p = (uint8_t*)ptr - ST_HEADER_SIZE;
+	const header* h = (header*)p;
+	const size_t size_inc_header_footer = h->size;
+	return (ptr != NULL) && (size_inc_header_footer >= size + (ST_HEADER_SIZE+ST_FOOTER_SIZE)) && (p[size_inc_header_footer-1] == ST_MAGIC_NUMBER);
 }
 
 #ifndef DREKKAR_ST_DEBUG
@@ -814,7 +834,7 @@ void* drekkar_st_resize(void* ptr, size_t old_size, size_t new_size, const char 
 {
 	assert((drekkar_st_is_valid_size(ptr, old_size)) && (new_size>old_size));
 	uint8_t* old_ptr = ptr - ST_HEADER_SIZE;
-	size_t new_size_inc_header_footer = new_size + (ST_HEADER_SIZE+ST_FOOTER_SIZE);
+	const size_t new_size_inc_header_footer = new_size + (ST_HEADER_SIZE+ST_FOOTER_SIZE);
 	#ifdef DREKKAR_ST_DEBUG
 	remove_from_linked_list((header*)old_ptr, file, line);
 	#endif
@@ -847,9 +867,9 @@ void* drekkar_st_realloc(void* ptr, size_t new_size, const char *file, unsigned 
 	if (ptr)
 	{
 		assert(*(size_t*)(ptr - ST_HEADER_SIZE) >= (ST_HEADER_SIZE+ST_FOOTER_SIZE));
-		uint8_t *old_ptr = (uint8_t*)ptr - ST_HEADER_SIZE;
-		size_t old_size_inc_header_footer = *(size_t*)old_ptr;
-		size_t old_size = old_size_inc_header_footer - (ST_HEADER_SIZE+ST_FOOTER_SIZE);
+		const uint8_t *old_ptr = (uint8_t*)ptr - ST_HEADER_SIZE;
+		const size_t old_size_inc_header_footer = *(size_t*)old_ptr;
+		const size_t old_size = old_size_inc_header_footer - (ST_HEADER_SIZE+ST_FOOTER_SIZE);
 		#ifndef DREKKAR_ST_DEBUG
 		return drekkar_st_resize(ptr, old_size, new_size);
 		#else
@@ -3931,7 +3951,7 @@ long drekkar_wa_parse_prog_sections(drekkar_wa_prog *p, const uint8_t *bytes, ui
 							void *ptr = find_imported_function(p, m);
 							if (ptr == NULL)
 							{
-								snprintf(exception, exception_size, "Did not find '%.*s' %s\n", (int)import_field_size, import_field_ptr, tmp);
+								snprintf(exception, exception_size, "Did not find '%.*s' %s", (int)import_field_size, import_field_ptr, tmp);
 								return DREKKAR_WA_IMPORT_FIELD_NOT_FOUND;
 							}
 

@@ -44,7 +44,7 @@
 //    PATCH version when you make backward compatible bug fixes
 // Warning! We do not follow this at early stages when major is 0.
 #define DREKKAR_VERSION_MAJOR 0
-#define DREKKAR_VERSION_MINOR 4
+#define DREKKAR_VERSION_MINOR 5
 #define DREKKAR_VERSION_PATCH 0
 
 
@@ -206,6 +206,7 @@ void* drekkar_linear_storage_size_top(drekkar_linear_storage_size_type *s);
 
 int64_t drekkar_st_get_time_us();
 void drekkar_st_init();
+void drekkar_st_deinit();
 
 
 
