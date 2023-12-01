@@ -232,16 +232,175 @@ static void drekkar_wart_version(drekkar_wa_data *d)
 	drekkar_wa_push_value_i64(d, v);
 }
 
+
+// 'env/__syscall_open' param i32 i32 i32, result i32'
+static void syscall_open(drekkar_wa_data *d)
+{
+	uint32_t p2 = drekkar_wa_pop_value_i64(d);
+	uint32_t p1 = drekkar_wa_pop_value_i64(d);
+	uint32_t p0 = drekkar_wa_pop_value_i64(d);
+
+	// TODO
+
+	drekkar_wa_push_value_i64(d, 0);
+}
+
+
+// 'env/__syscall_fcntl64' param i32 i32 i32, result i32'
+static void syscall_fcntl64(drekkar_wa_data *d)
+{
+	uint32_t p2 = drekkar_wa_pop_value_i64(d);
+	uint32_t p1 = drekkar_wa_pop_value_i64(d);
+	uint32_t p0 = drekkar_wa_pop_value_i64(d);
+
+	// TODO
+
+	drekkar_wa_push_value_i64(d, 0);
+}
+
+// 'env/__syscall_ioctl' param i32 i32 i32, result i32'
+static void syscall_ioctl(drekkar_wa_data *d)
+{
+	uint32_t p2 = drekkar_wa_pop_value_i64(d);
+	uint32_t p1 = drekkar_wa_pop_value_i64(d);
+	uint32_t p0 = drekkar_wa_pop_value_i64(d);
+
+	// TODO
+
+	drekkar_wa_push_value_i64(d, 0);
+}
+
+// 'wasi_snapshot_preview1/fd_read' param i32 i32 i32 i32, result i32'
+static void fd_read(drekkar_wa_data *d)
+{
+	uint32_t p3 = drekkar_wa_pop_value_i64(d);
+	uint32_t p2 = drekkar_wa_pop_value_i64(d);
+	uint32_t p1 = drekkar_wa_pop_value_i64(d);
+	uint32_t p0 = drekkar_wa_pop_value_i64(d);
+
+	// TODO
+
+	drekkar_wa_push_value_i64(d, 0);
+}
+
+// 'wasi_snapshot_preview1/fd_close' param i32, result i32'
+static void fd_close(drekkar_wa_data *d)
+{
+	uint32_t p0 = drekkar_wa_pop_value_i64(d);
+
+	// TODO
+
+	drekkar_wa_push_value_i64(d, 0);
+}
+
+// 'env/__syscall_getcwd' param i32 i32, result i32'
+static void syscall_getcwd(drekkar_wa_data *d)
+{
+	uint32_t p1 = drekkar_wa_pop_value_i64(d);
+	uint32_t p0 = drekkar_wa_pop_value_i64(d);
+
+	// TODO
+
+	drekkar_wa_push_value_i64(d, 0);
+}
+
+// 'env/__syscall_readlink' param i32 i32 i32, result i32'
+static void syscall_readlink(drekkar_wa_data *d)
+{
+	uint32_t p2 = drekkar_wa_pop_value_i64(d);
+	uint32_t p1 = drekkar_wa_pop_value_i64(d);
+	uint32_t p0 = drekkar_wa_pop_value_i64(d);
+
+	// TODO
+
+	drekkar_wa_push_value_i64(d, 0);
+}
+
+// 'env/__syscall_fstat64' param i32 i32, result i32'
+static void syscall_fstat64(drekkar_wa_data *d)
+{
+	uint32_t p1 = drekkar_wa_pop_value_i64(d);
+	uint32_t p0 = drekkar_wa_pop_value_i64(d);
+
+	// TODO
+
+	drekkar_wa_push_value_i64(d, 0);
+}
+
+// 'env/__syscall_stat64' param i32 i32, result i32'
+static void syscall_stat64(drekkar_wa_data *d)
+{
+	uint32_t p1 = drekkar_wa_pop_value_i64(d);
+	uint32_t p0 = drekkar_wa_pop_value_i64(d);
+
+	// TODO
+
+	drekkar_wa_push_value_i64(d, 0);
+}
+
+// 'env/__syscall_lstat64' param i32 i32, result i32'
+static void syscall_lstat64(drekkar_wa_data *d)
+{
+	uint32_t p1 = drekkar_wa_pop_value_i64(d);
+	uint32_t p0 = drekkar_wa_pop_value_i64(d);
+
+	// TODO
+
+	drekkar_wa_push_value_i64(d, 0);
+}
+
+
+// 'env/__syscall_fstatat64' param i32 i32 i32 i32, result i32'
+static void syscall_fstatat64(drekkar_wa_data *d)
+{
+	uint32_t p3 = drekkar_wa_pop_value_i64(d);
+	uint32_t p2 = drekkar_wa_pop_value_i64(d);
+	uint32_t p1 = drekkar_wa_pop_value_i64(d);
+	uint32_t p0 = drekkar_wa_pop_value_i64(d);
+
+	// TODO
+
+	drekkar_wa_push_value_i64(d, 0);
+}
+
+// 'wasi_snapshot_preview1/fd_seek' param i32 i32 i32 i32 i32, result i32'
+static void fd_seek(drekkar_wa_data *d)
+{
+	uint32_t p4 = drekkar_wa_pop_value_i64(d);
+	uint32_t p3 = drekkar_wa_pop_value_i64(d);
+	uint32_t p2 = drekkar_wa_pop_value_i64(d);
+	uint32_t p1 = drekkar_wa_pop_value_i64(d);
+	uint32_t p0 = drekkar_wa_pop_value_i64(d);
+
+	// TODO
+
+	drekkar_wa_push_value_i64(d, 0);
+}
+
 // To tell the runtime which functions we have available for it to call.
 static void register_functions(drekkar_wa_prog *p)
 {
 	drekkar_wa_register_function(p, "wasi_snapshot_preview1/fd_write", wa_fd_write);
+	drekkar_wa_register_function(p, "wasi_snapshot_preview1/fd_read", fd_read);
+	drekkar_wa_register_function(p, "wasi_snapshot_preview1/fd_close", fd_close);
+	drekkar_wa_register_function(p, "wasi_snapshot_preview1/fd_seek", fd_seek);
 	drekkar_wa_register_function(p, "env/__assert_fail", assert_fail);
 	drekkar_wa_register_function(p, "env/emscripten_memcpy_big", wa_memcpy_big);
 	drekkar_wa_register_function(p, "env/emscripten_resize_heap", emscripten_resize_heap);
 	drekkar_wa_register_function(p, "env/emscripten_memcpy_js", wa_memcpy_big);
 	drekkar_wa_register_function(p, "env/setTempRet0", setTempRet0);
 	drekkar_wa_register_function(p, "env/getTempRet0", getTempRet0);
+	drekkar_wa_register_function(p, "env/__syscall_open", syscall_open);
+	drekkar_wa_register_function(p, "env/__syscall_fcntl64", syscall_fcntl64);
+	drekkar_wa_register_function(p, "env/__syscall_ioctl", syscall_ioctl);
+	drekkar_wa_register_function(p, "env/__syscall_getcwd", syscall_getcwd);
+	drekkar_wa_register_function(p, "env/__syscall_readlink", syscall_readlink);
+	drekkar_wa_register_function(p, "env/__syscall_fstat64", syscall_fstat64);
+	drekkar_wa_register_function(p, "env/__syscall_stat64", syscall_stat64);
+	drekkar_wa_register_function(p, "env/__syscall_fstatat64", syscall_fstatat64);
+	drekkar_wa_register_function(p, "env/__syscall_stat64", syscall_stat64);
+	drekkar_wa_register_function(p, "env/__syscall_lstat64", syscall_lstat64);
+
 	drekkar_wa_register_function(p, "drekkar/wart_version", drekkar_wart_version);
 	drekkar_wa_register_function(p, "drekkar/log_i64", test_log_i64);
 	drekkar_wa_register_function(p, "drekkar/log_hex", test_log_hex);

@@ -8,6 +8,13 @@ To compile the test scripts some tools may be needed.
 sudo apt-get install binaryen emscripten gcc-multilib g++-multilib libedit-dev:i386
 
 https://github.com/xehp/drekkar_webasm.git
+
+Fun test to do:
+Compile then runtime with emscripten and run its own wasm code:
+	emcc drekkar_core.c drekkar_env.c main.c
+	../drekkar_webasm_runtime a.out.wasm --version
+Its able to print the version info at least. A lot of file system
+functions are not implemented though.
 */
 
 #include <assert.h>
@@ -88,18 +95,19 @@ static void print_version(const char* name) {
 
 
 /* Find test_code dir, start at current directory and search upwards until it is found. */
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wpragmas"
+#pragma GCC diagnostic ignored "-Wformat-truncation"
 static int find_root_dir(const char* test_code_dir_name, char *actual_path, size_t actual_path_size)
 {
 	int n = 0;
 	char publicPath[PATH_MAX+1]="";
 	char publicPathAndName[PATH_MAX+1]="";
-	for(;;)
-	{
-		#pragma GCC diagnostic push
-		#pragma GCC diagnostic ignored "-Wpragmas"
-		#pragma GCC diagnostic ignored "-Wformat-truncation"
 
+	while(n < 10)
+	{
 		snprintf(publicPathAndName, sizeof(publicPathAndName), "%s%s", publicPath, test_code_dir_name);
+		//printf("Trying '%s'\n", publicPathAndName);
 		if (does_folder_exist(publicPathAndName))
 		{
 			// https://stackoverflow.com/questions/229012/getting-absolute-path-of-a-file
@@ -107,22 +115,18 @@ static int find_root_dir(const char* test_code_dir_name, char *actual_path, size
 			const char *ptr = realpath(publicPathAndName, actual_path);
 			//printf("Relative: '%s'\n", publicPathAndName);
 			printf("Found: '%s'\n", ptr);
-			break;
+			return 0;
 		}
 		// Not found yet. Go up one level.
-		strncpy(publicPathAndName, publicPath, sizeof(publicPathAndName));
 
-		snprintf(publicPath, sizeof(publicPath), "../%s",publicPathAndName);
-		if ((!does_folder_exist(publicPath)) || (n > 10))
-		{
-			printf("Did not find public folder. Gave up at '%s'\n", publicPath);
-			return -1;
-		}
+		snprintf(publicPathAndName, sizeof(publicPathAndName), "../%s",publicPath);
+		snprintf(publicPath, sizeof(publicPath), "%s",publicPathAndName);
 		n++;
-		#pragma GCC diagnostic pop
 	}
-	return 0;
+	printf("Did not find '%s' folder. Gave up at '%s'\n", test_code_dir_name, publicPath);
+	return -1;
 }
+#pragma GCC diagnostic pop
 
 
 static int test_drekkar_webasm_runtime(drekkar_wa_env_type *e)
