@@ -1,10 +1,16 @@
-;; To compile this do
-;; sudo apt install binaryen
-;; wasm-as test.wat
+;; Test program for drekkar webasm runtime.
+;;
+;; Some tools may be needed to run this:
+;;   sudo apt install binaryen
+;;
+;; To compile this do:
+;;   wasm-as test_if.wat
+;;
 ;; To get it back into text format do:
-;; wasm-dis test.wasm
+;;   wasm-dis test_if.wasm
+;;
 ;; To run this:
-;; ./drekkar_webasm_runtime --function_name test ../test_code/test_if.wasm 4 4
+;; ../drekkar_webasm_runtime/drekkar_webasm_runtime --function_name test test_if.wasm -4 4
 ;;
 ;; Expected result:
 ;; If the sum of the two last numbers (in command line) is zero:
@@ -41,7 +47,7 @@
 
     (call $empty )
 
-    (i32.const 0)
+    (i32.const $0)
   )
 
 )

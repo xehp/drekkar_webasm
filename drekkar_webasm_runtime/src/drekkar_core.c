@@ -1795,7 +1795,7 @@ long drekkar_wa_setup_function_call(const drekkar_wa_prog *p, drekkar_wa_data *d
 	block->func_type_idx = func->func_type_idx;
 	block->func_info.func_idx = function_idx;
 	block->stack_pointer = expected_sp_after_call;
-	block->frame_pointer = d->fp;
+	block->func_info.frame_pointer = d->fp;
 	block->func_info.return_addr = d->pc.pos;
 
 	// Remember current stack pointer, as it was before call.
@@ -1890,7 +1890,6 @@ long drekkar_wa_tick(const drekkar_wa_prog *p, drekkar_wa_data *d)
 				block->func_type_idx = blocktype;
 				block->block_and_loop_info.br_addr = find_br_addr(p, d, d->pc.pos);
 				block->stack_pointer = d->sp; // Or just set it to zero?
-				block->frame_pointer = d->fp;
 
 				D("block\n");
 
@@ -1917,7 +1916,6 @@ long drekkar_wa_tick(const drekkar_wa_prog *p, drekkar_wa_data *d)
 				block->func_type_idx = blocktype;
 				block->block_and_loop_info.br_addr = d->pc.pos;
 				block->stack_pointer = d->sp;
-				block->frame_pointer = d->fp;
 
 				D("loop\n");
 
@@ -1940,7 +1938,6 @@ long drekkar_wa_tick(const drekkar_wa_prog *p, drekkar_wa_data *d)
 				block->block_type_code = wa_block_type_if;
 				block->func_type_idx = blocktype;
 				block->stack_pointer = d->sp;
-				block->frame_pointer = d->fp;
 
 				// Here we search the addresses of both else and end regardless of condition.
 				// We could check condition and search for only one of those. But emscripten
@@ -2023,6 +2020,7 @@ long drekkar_wa_tick(const drekkar_wa_prog *p, drekkar_wa_data *d)
 			case 0x0b: // end
 			{
 				// Reached the end of a block or function take new PC from the call/block stack.
+				D("end\n");
 
 				// Pop from block stack.
 				const drekkar_block_stack_entry *block = (drekkar_block_stack_entry*) drekkar_linear_storage_size_pop(&d->block_stack);
@@ -2084,7 +2082,7 @@ long drekkar_wa_tick(const drekkar_wa_prog *p, drekkar_wa_data *d)
 					case wa_block_type_internal_func:
 					{
 						// Restore frame pointer to what previous block had.
-						d->fp = block->frame_pointer;
+						d->fp = block->func_info.frame_pointer;
 
 						// If its a function that ends then it has a special return address.
 						// If so set program counter to the saved return address.
@@ -2107,7 +2105,6 @@ long drekkar_wa_tick(const drekkar_wa_prog *p, drekkar_wa_data *d)
 					}
 					default: break;
 				}
-				D("end\n");
 
 				if (d->pc.pos >= d->pc.nof) {return DREKKAR_WA_PC_ADDR_OUT_OF_RANGE;}
 				if (--d->gas_meter <= 0) {return DREKKAR_WA_NEED_MORE_GAS;}
@@ -2417,7 +2414,7 @@ long drekkar_wa_tick(const drekkar_wa_prog *p, drekkar_wa_data *d)
 				const uint32_t offset = leb_read(&d->pc, 32);
 				const uint32_t addr = POP_U32(d);
 				PUSH_I32(d, translate_get_int32(d, offset + addr));
-				D("i32.load 0x%x 0x%x 0x%x", offset, addr, TOP_U32(d));
+				D("i32.load 0x%x 0x%x 0x%x\n", offset, addr, TOP_U32(d));
 				break;
 			}
 			case 0x29: // i64.load
@@ -2426,7 +2423,7 @@ long drekkar_wa_tick(const drekkar_wa_prog *p, drekkar_wa_data *d)
 				const uint32_t offset = leb_read(&d->pc, 32);
 				const uint32_t addr = POP_U32(d);
 				PUSH_I64(d, translate_get_int64(d, offset + addr));
-				D("i64.load 0x%x 0x%x 0x%llx", offset, addr, (unsigned long long)TOP_U64(d));
+				D("i64.load 0x%x 0x%x 0x%llx\n", offset, addr, (unsigned long long)TOP_U64(d));
 				break;
 			}
 			case 0x2a: // f32.load
@@ -2456,7 +2453,7 @@ long drekkar_wa_tick(const drekkar_wa_prog *p, drekkar_wa_data *d)
 				const uint32_t addr = POP_U32(d);
 				int32_t value = translate_get_int8(d, offset + addr);
 				PUSH_I32(d, value);
-				D("i32.load8_s 0x%x", TOP_U32(d));
+				D("i32.load8_s 0x%x\n", TOP_U32(d));
 				break;
 		    }
 		    case 0x2d: // i32.load8_u
@@ -2466,7 +2463,7 @@ long drekkar_wa_tick(const drekkar_wa_prog *p, drekkar_wa_data *d)
 				const uint32_t addr = POP_U32(d);
 				uint32_t value = (uint8_t)translate_get_int8(d, offset + addr);
 				PUSH_U32(d, value);
-				D("i32.load8_u 0x%x", TOP_U32(d));
+				D("i32.load8_u 0x%x\n", TOP_U32(d));
 				break;
 		    }
 		    case 0x2e: // i32.load16_s
@@ -2476,7 +2473,7 @@ long drekkar_wa_tick(const drekkar_wa_prog *p, drekkar_wa_data *d)
 				const uint32_t addr = POP_U32(d);
 				int32_t value = translate_get_int16(d, offset + addr);
 				PUSH_I32(d, value);
-				D("i32.load16_s 0x%x", TOP_U32(d));
+				D("i32.load16_s 0x%x\n", TOP_U32(d));
 				break;
 		    }
 		    case 0x2f: // i32.load16_u
@@ -2486,7 +2483,7 @@ long drekkar_wa_tick(const drekkar_wa_prog *p, drekkar_wa_data *d)
 				const uint32_t addr = POP_U32(d);
 				uint32_t value = (uint16_t)translate_get_int16(d, offset + addr);
 				PUSH_U32(d, value);
-				D("i32.load16_u 0x%x", TOP_U32(d));
+				D("i32.load16_u 0x%x\n", TOP_U32(d));
 				break;
 		    }
 		    case 0x30: // i64.load8_s
@@ -2496,7 +2493,7 @@ long drekkar_wa_tick(const drekkar_wa_prog *p, drekkar_wa_data *d)
 				const uint32_t addr = POP_U32(d);
 				int64_t value = translate_get_int8(d, offset + addr);
 				PUSH_I64(d, value);
-				D("i64.load8_s 0x%llx", (long unsigned long)TOP_U64(d));
+				D("i64.load8_s 0x%llx\n", (long unsigned long)TOP_U64(d));
 				break;
 		    }
 		    case 0x31: // i64.load8_u
@@ -2506,7 +2503,7 @@ long drekkar_wa_tick(const drekkar_wa_prog *p, drekkar_wa_data *d)
 				const uint32_t addr = POP_U32(d);
 				uint64_t value = (uint8_t)translate_get_int8(d, offset + addr);
 				PUSH_U64(d, value);
-				D("i64.load8_u 0x%llx", (long unsigned long)TOP_U64(d));
+				D("i64.load8_u 0x%llx\n", (long unsigned long)TOP_U64(d));
 				break;
 		    }
 		    case 0x32: // i64.load16_s
@@ -2516,7 +2513,7 @@ long drekkar_wa_tick(const drekkar_wa_prog *p, drekkar_wa_data *d)
 				const uint32_t addr = POP_U32(d);
 				int64_t value = translate_get_int16(d, offset + addr);
 				PUSH_I64(d, value);
-				D("i64.load16_s 0x%llx", (long unsigned long)TOP_U64(d));
+				D("i64.load16_s 0x%llx\n", (long unsigned long)TOP_U64(d));
 				break;
 		    }
 		    case 0x33: // i64.load16_u
@@ -2526,7 +2523,7 @@ long drekkar_wa_tick(const drekkar_wa_prog *p, drekkar_wa_data *d)
 				const uint32_t addr = POP_U32(d);
 				uint64_t value = (uint16_t)translate_get_int16(d, offset + addr);
 				PUSH_U64(d, value);
-				D("i64.load16_u 0x%llx", (long unsigned long)TOP_U64(d));
+				D("i64.load16_u 0x%llx\n", (long unsigned long)TOP_U64(d));
 				break;
 		    }
 		    case 0x34: // i64.load32_s
@@ -2536,7 +2533,7 @@ long drekkar_wa_tick(const drekkar_wa_prog *p, drekkar_wa_data *d)
 				const uint32_t addr = POP_U32(d);
 				int64_t value = translate_get_int32(d, offset + addr);
 				PUSH_I64(d, value);
-				D("i64.load32_s 0x%llx", (long unsigned long)TOP_U64(d));
+				D("i64.load32_s 0x%llx\n", (long unsigned long)TOP_U64(d));
 				break;
 		    }
 		    case 0x35: // i64.load32_u
@@ -2546,7 +2543,7 @@ long drekkar_wa_tick(const drekkar_wa_prog *p, drekkar_wa_data *d)
 				const uint32_t addr = POP_U32(d);
 				uint64_t value = (uint32_t)translate_get_int32(d, offset + addr);
 				PUSH_U64(d, value);
-				D("i64.load32_u 0x%llx", (long unsigned long)TOP_U64(d));
+				D("i64.load32_u 0x%llx\n", (long unsigned long)TOP_U64(d));
 				break;
 		    }
 
@@ -2557,7 +2554,7 @@ long drekkar_wa_tick(const drekkar_wa_prog *p, drekkar_wa_data *d)
 				const int32_t value = POP_I32(d);
 				const uint32_t addr = POP_U32(d);
 				translate_set_int32(d, offset + addr, value);
-				D("i32.store 0x%llx", (long unsigned long)value);
+				D("i32.store 0x%llx\n", (long unsigned long)value);
 				break;
 		    }
 		    case 0x37: // i64.store
@@ -2567,7 +2564,7 @@ long drekkar_wa_tick(const drekkar_wa_prog *p, drekkar_wa_data *d)
 				const int64_t value = POP_I64(d);
 				const uint32_t addr = POP_U32(d);
 				translate_set_int64(d, offset + addr, value);
-				D("i64.store 0x%llx", (long unsigned long)value);
+				D("i64.store 0x%llx\n", (long unsigned long)value);
 				break;
 		    }
 		    case 0x38: // f32.store
@@ -2598,7 +2595,7 @@ long drekkar_wa_tick(const drekkar_wa_prog *p, drekkar_wa_data *d)
 				const int32_t value = POP_I32(d);
 				const uint32_t addr = POP_U32(d);
 				translate_set_int8(d, offset + addr, value);
-				D("i32.store8 0x%x 0x%x 0x%x", offset, value, addr);
+				D("i32.store8 0x%x 0x%x 0x%x\n", offset, value, addr);
 				break;
 		    }
 		    case 0x3b: // i32.store16
@@ -2608,7 +2605,7 @@ long drekkar_wa_tick(const drekkar_wa_prog *p, drekkar_wa_data *d)
 				const int32_t value = POP_I32(d);
 				const uint32_t addr = POP_U32(d);
 				translate_set_int16(d, offset + addr, value);
-				D("i32.store16 0x%x 0x%x 0x%x", offset, value, addr);
+				D("i32.store16 0x%x 0x%x 0x%x\n", offset, value, addr);
 				break;
 		    }
 		    case 0x3c: // i64.store8
@@ -2618,7 +2615,7 @@ long drekkar_wa_tick(const drekkar_wa_prog *p, drekkar_wa_data *d)
 				const int64_t value = POP_I64(d);
 				const uint32_t addr = POP_U32(d);
 				translate_set_int8(d, offset + addr, value);
-				D("i64.store8 0x%x 0x%llx 0x%x", offset, (long long unsigned)value, addr);
+				D("i64.store8 0x%x 0x%llx 0x%x\n", offset, (long long unsigned)value, addr);
 				break;
 		    }
 		    case 0x3d: // i32.store16
@@ -2628,7 +2625,7 @@ long drekkar_wa_tick(const drekkar_wa_prog *p, drekkar_wa_data *d)
 				const int32_t value = POP_I32(d);
 				const uint32_t addr = POP_U32(d);
 				translate_set_int16(d, offset + addr, value);
-				D("i32.store16 0x%x 0x%llx 0x%x", offset, (long long unsigned)value, addr);
+				D("i32.store16 0x%x 0x%llx 0x%x\n", offset, (long long unsigned)value, addr);
 				break;
 		    }
 		    case 0x3e: // i64.store32
@@ -2638,7 +2635,7 @@ long drekkar_wa_tick(const drekkar_wa_prog *p, drekkar_wa_data *d)
 				const int64_t value = POP_I64(d);
 				const uint32_t addr = POP_U32(d);
 				translate_set_int64(d, offset + addr, value);
-				D("i64.store32 0x%x 0x%llx 0x%x", offset, (long long unsigned)value, addr);
+				D("i64.store32 0x%x 0x%llx 0x%x\n", offset, (long long unsigned)value, addr);
 				break;
 		    }
 
@@ -2672,11 +2669,11 @@ long drekkar_wa_tick(const drekkar_wa_prog *p, drekkar_wa_data *d)
 			case 0x41: // i32.const
 				// Push i32 immediate operand to stack.
 				PUSH_I32(d, leb_read_signed(&d->pc, 32));
-				D("i32.const 0x%x", TOP_U32(d));
+				D("i32.const 0x%x\n", TOP_U32(d));
 				break;
 			case 0x42: // i64.const
 				PUSH_I64(d, leb_read_signed(&d->pc, 64));
-				D("i64.const 0x%llx", (long long unsigned)TOP_U64(d));
+				D("i64.const 0x%llx\n", (long long unsigned)TOP_U64(d));
 				break;
 
 			#ifndef SKIP_FLOAT
@@ -3797,7 +3794,7 @@ static long run_init_expr(const drekkar_wa_prog *p, drekkar_wa_data *d, uint8_t 
 	block->block_type_code = wa_block_type_init_exp;
 	block->func_type_idx = -type; // Positive numbers are for function types (section 1) so make it negative here.
 	block->stack_pointer = DREKKAR_SP_INITIAL;
-	block->frame_pointer = 0;
+	block->func_info.frame_pointer = 0;
 	block->func_info.return_addr = 0;
 
 	assert(d->sp == DREKKAR_SP_INITIAL);

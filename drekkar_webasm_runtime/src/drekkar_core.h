@@ -563,10 +563,12 @@ typedef struct drekkar_wa_func_type_type
 typedef void (*drekkar_wa_func_ptr)(drekkar_wa_data *d);
 
 
+// For function idx >= nof_imported &  wa_block_type_init_exp.
 typedef struct drekkar_func_info_type
 {
 	uint32_t func_idx;
 	uint32_t return_addr;
+	drekkar_stack_pointer_type frame_pointer; // The saved frame pointer (as used by previous function).
 } drekkar_func_info_type;
 
 // branch address for branching out of a block or loop back in a loop.
@@ -590,14 +592,13 @@ typedef struct drekkar_block_stack_entry
 	int32_t func_type_idx; // Index into types from section 1, or -64 for empty type (see value_type_enum).
 	uint8_t block_type_code; // See block_type_enum for possible values.
 	union {
-		drekkar_func_info_type func_info; // For function idx >= nof_imported.
+		drekkar_func_info_type func_info; // For function idx >= nof_imported &  wa_block_type_init_exp.
 		drekkar_block_info_type block_and_loop_info; // For non functions, blocks loops etc.
 		drekkar_if_else_info if_else_info; // For non functions, blocks loops etc.
 	};
 
-	// The saved stack and frame pointers (as used by previous function).
+	// The saved stack pointer (as used by previous function or block).
 	drekkar_stack_pointer_type stack_pointer;
-	drekkar_stack_pointer_type frame_pointer;
 } drekkar_block_stack_entry;
 
 
