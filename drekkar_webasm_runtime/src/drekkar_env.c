@@ -177,18 +177,37 @@ void wa_args_sizes_get(Module *m)
 
 
 // Test function, remove later.
-static void test_log(drekkar_wa_data *d)
+static void test_log_i64(drekkar_wa_data *d)
 {
 	uint64_t n = drekkar_wa_pop_value_i64(d);
 	printf("log: %lld\n", (long long)n);
 }
 
-// Test function, remove later.
-static void test_hello(drekkar_wa_data *d)
+static void test_log_hex(drekkar_wa_data *d)
 {
-	(void)d;
-	printf("Hello!\n");
+	uint64_t n = drekkar_wa_pop_value_i64(d);
+	printf("log: %llx\n", (long long)n);
 }
+
+static void test_log_ch(drekkar_wa_data *d)
+{
+	uint64_t n = drekkar_wa_pop_value_i64(d);
+	printf("log: %c\n", (int)n);
+}
+
+// Test function, remove later.
+static void test_log_str(drekkar_wa_data *d)
+{
+	uint64_t a = drekkar_wa_pop_value_i64(d);
+	const uint8_t* ptr = (uint8_t*)drekkar_wa_translate_to_host_addr_space(d, a, 1);
+	printf("log: '%s'\n", ptr);
+}
+
+static void log_empty_line(drekkar_wa_data *d)
+{
+	printf("log:\n");
+}
+
 
 // https://refspecs.linuxbase.org/LSB_5.0.0/LSB-Core-generic/LSB-Core-generic/baselib---assert-fail-1.html
 // void __assert_fail(const char * assertion, const char * file, unsigned int line, const char * function);
@@ -224,8 +243,11 @@ static void register_functions(drekkar_wa_prog *p)
 	drekkar_wa_register_function(p, "setTempRet0", setTempRet0);
 	drekkar_wa_register_function(p, "getTempRet0", getTempRet0);
 	drekkar_wa_register_function(p, "drekkar_wart_version", drekkar_wart_version);
-	drekkar_wa_register_function(p, "test_log", test_log);
-	drekkar_wa_register_function(p, "test_hello", test_hello);
+	drekkar_wa_register_function(p, "drekkar_log_i64", test_log_i64);
+	drekkar_wa_register_function(p, "drekkar_log_hex", test_log_hex);
+	drekkar_wa_register_function(p, "drekkar_log_ch", test_log_ch);
+	drekkar_wa_register_function(p, "drekkar_log_str", test_log_str);
+	drekkar_wa_register_function(p, "drekkar_log_empty_line", log_empty_line);
 }
 
 static long parse_prog_sections(drekkar_wa_prog *p, uint8_t *bytes, size_t file_size, char* exception, size_t size_exception, FILE *log)

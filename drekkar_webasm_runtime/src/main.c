@@ -40,7 +40,8 @@ static void print_help(const char* name) {
 	printf("  --help               Display this information.\n");
 	printf("  --version            Display the version and copyright info.\n");
 	printf("  --logging-on         More logging.\n");
-	printf("  --function_name <n>  Call other function (that is not main).\n");
+	printf("  --function_name <n>  Call other function (that is not main),\n");
+	printf("                       arguments will be pushed as numbers.\n");
 	printf("Where:\n");
 	printf("  <filename>     shall be the name of a \".wasm\" file.\n");
 	printf("  <argv/argc>    will be passed on to web assembly code.\n");
