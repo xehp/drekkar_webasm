@@ -24,8 +24,8 @@
 ;;   log:
 ;;
 (module
-  (import "console" "drekkar_log_i64" (func $log (param i32) ))
-  (import "console" "drekkar_log_empty_line" (func $empty ))
+  (import "drekkar" "log_i64" (func $log (param i32) ))
+  (import "drekkar" "log_empty_line" (func $empty ))
   (export "test" (func $test))
   (global $global$0 (mut i32) (i32.const 17))
 

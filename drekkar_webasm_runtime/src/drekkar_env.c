@@ -235,19 +235,19 @@ static void drekkar_wart_version(drekkar_wa_data *d)
 // To tell the runtime which functions we have available for it to call.
 static void register_functions(drekkar_wa_prog *p)
 {
-	drekkar_wa_register_function(p, "fd_write", wa_fd_write);
-	drekkar_wa_register_function(p, "__assert_fail", assert_fail);
-	drekkar_wa_register_function(p, "emscripten_memcpy_big", wa_memcpy_big);
-	drekkar_wa_register_function(p, "emscripten_resize_heap", emscripten_resize_heap);
-	drekkar_wa_register_function(p, "emscripten_memcpy_js", wa_memcpy_big);
-	drekkar_wa_register_function(p, "setTempRet0", setTempRet0);
-	drekkar_wa_register_function(p, "getTempRet0", getTempRet0);
-	drekkar_wa_register_function(p, "drekkar_wart_version", drekkar_wart_version);
-	drekkar_wa_register_function(p, "drekkar_log_i64", test_log_i64);
-	drekkar_wa_register_function(p, "drekkar_log_hex", test_log_hex);
-	drekkar_wa_register_function(p, "drekkar_log_ch", test_log_ch);
-	drekkar_wa_register_function(p, "drekkar_log_str", test_log_str);
-	drekkar_wa_register_function(p, "drekkar_log_empty_line", log_empty_line);
+	drekkar_wa_register_function(p, "wasi_snapshot_preview1/fd_write", wa_fd_write);
+	drekkar_wa_register_function(p, "env/__assert_fail", assert_fail);
+	drekkar_wa_register_function(p, "env/emscripten_memcpy_big", wa_memcpy_big);
+	drekkar_wa_register_function(p, "env/emscripten_resize_heap", emscripten_resize_heap);
+	drekkar_wa_register_function(p, "env/emscripten_memcpy_js", wa_memcpy_big);
+	drekkar_wa_register_function(p, "env/setTempRet0", setTempRet0);
+	drekkar_wa_register_function(p, "env/getTempRet0", getTempRet0);
+	drekkar_wa_register_function(p, "drekkar/wart_version", drekkar_wart_version);
+	drekkar_wa_register_function(p, "drekkar/log_i64", test_log_i64);
+	drekkar_wa_register_function(p, "drekkar/log_hex", test_log_hex);
+	drekkar_wa_register_function(p, "drekkar/log_ch", test_log_ch);
+	drekkar_wa_register_function(p, "drekkar/log_str", test_log_str);
+	drekkar_wa_register_function(p, "drekkar/log_empty_line", log_empty_line);
 }
 
 static long parse_prog_sections(drekkar_wa_prog *p, uint8_t *bytes, size_t file_size, char* exception, size_t size_exception, FILE *log)
@@ -315,10 +315,10 @@ static long long total_memory_usage(drekkar_wa_data *d)
 {
 	return d->memory.lower_mem.capacity +
 	(d->memory.upper_mem.end - d->memory.upper_mem.begin) +
-	d->memory.arguments.size +
+	d->memory.arguments.capacity +
 	(d->globals.capacity * 8) +
 	(d->block_stack.capacity * sizeof(drekkar_block_stack_entry)) +
-	DREKKAR_STACK_SIZE +
+	DREKKAR_STACK_SIZE * 8 +
 	d->pc.nof;
 }
 

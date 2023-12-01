@@ -1955,8 +1955,8 @@ long drekkar_wa_tick(const drekkar_wa_prog *p, drekkar_wa_data *d)
 				else if (d->pc.array[addr] == 0x05) // 0x05 = else
 				{
 					// An else was found so continue to find end also.
-					block->if_else_info.else_addr = addr + 1;
-					uint32_t end_addr = find_else_or_end(p, d, block->if_else_info.else_addr);
+					block->if_else_info.else_addr = addr;
+					uint32_t end_addr = find_else_or_end(p, d, block->if_else_info.else_addr + 1);
 					if ((d->pc.array[end_addr] != 0x0b) || (end_addr >= d->pc.nof))
 					{
 						sprintf(d->exception, "%s", "No end in sight!");
@@ -1984,7 +1984,7 @@ long drekkar_wa_tick(const drekkar_wa_prog *p, drekkar_wa_data *d)
 					{
 						// Condition was not true so continue with the else
 						// until end is found.
-						d->pc.pos = block->if_else_info.else_addr;
+						d->pc.pos = block->if_else_info.else_addr + 1;
 					}
 				}
 				else
@@ -3943,14 +3943,14 @@ long drekkar_wa_parse_prog_sections(drekkar_wa_prog *p, const uint8_t *bytes, ui
 						{
 							drekkar_wa_function *f = &p->funcs_vector.functions_array[p->funcs_vector.nof_imported];
 
-							if (import_field_size > DREKKAR_HASH_LIST_MAX_KEY_SIZE)
+							if ((import_module_size + 1 + import_field_size) > DREKKAR_HASH_LIST_MAX_KEY_SIZE)
 							{
 								snprintf(exception, exception_size, "Name to long '%.256s'\n", import_field_ptr);
 								return DREKKAR_WA_EXPORT_NAME_TO_LONG;
 							}
 
 							char m[DREKKAR_HASH_LIST_MAX_KEY_SIZE+1];
-							snprintf(m, import_field_size + 1, "%.*s", (int) import_field_size, import_field_ptr);
+							snprintf(m, sizeof(m), "%.*s/%.*s", (int) import_module_size, import_module_ptr, (int) import_field_size, import_field_ptr);
 
 							// Ref[1] 5.4.1. Control Instructions
 							//     Unlike any other occurrence, the type index in a block type is encoded as a positive
@@ -3969,12 +3969,12 @@ long drekkar_wa_parse_prog_sections(drekkar_wa_prog *p, const uint8_t *bytes, ui
 							char tmp[256];
 							const drekkar_wa_func_type_type *type = drekkar_get_func_type_ptr(p, f->func_type_idx);
 							func_type_to_string(tmp, sizeof(tmp), type);
-							if (log) {fprintf(log, "Import 0x%x '%.*s'  %s\n", p->funcs_vector.nof_imported, (int) import_field_size, import_field_ptr, tmp);}
+							if (log) {fprintf(log, "Import 0x%x '%s' %s\n", p->funcs_vector.nof_imported, m, tmp);}
 
 							void *ptr = find_imported_function(p, m);
 							if (ptr == NULL)
 							{
-								snprintf(exception, exception_size, "Did not find '%.*s' %s", (int)import_field_size, import_field_ptr, tmp);
+								snprintf(exception, exception_size, "Did not find '%s' %s", m, tmp);
 								return DREKKAR_WA_IMPORT_FIELD_NOT_FOUND;
 							}
 
@@ -4640,10 +4640,10 @@ void drekkar_wa_data_deinit(drekkar_wa_data *d, FILE* log)
 		fprintf(log, "Memory usage: %zu + %zu + %zu  +  %zu + %zu + %u + %zu\n",
 			d->memory.lower_mem.capacity,
 			d->memory.upper_mem.end - d->memory.upper_mem.begin,
-			d->memory.arguments.size,
+			d->memory.arguments.capacity,
 			d->globals.capacity * 8,
 			d->block_stack.capacity * sizeof(drekkar_block_stack_entry),
-			DREKKAR_STACK_SIZE,
+			DREKKAR_STACK_SIZE * 8,
 			d->pc.nof);}
 
 	drekkar_linear_storage_64_deinit(&d->globals);
