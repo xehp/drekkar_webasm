@@ -31,6 +31,14 @@ Created October 2023 by Henrik
 #include <ctype.h>
 #include <assert.h>
 #include <unistd.h>
+#include <sys/types.h>
+#ifdef __EMSCRIPTEN__
+#include <wasi/api.h>
+#include <wasi/wasi-helpers.h>
+#else
+#include <sys/stat.h>
+#endif
+
 
 #include "drekkar_core.h"
 #include "drekkar_env.h"
@@ -65,10 +73,23 @@ static size_t load_file(drekkar_linear_storage_8_type *storage, const char* file
 	return storage->size;
 }
 
+static int nof_parameters_on_stack(drekkar_wa_data *d)
+{
+	return d->sp - d->fp;
+}
+
 
 /*uint32_fd_write(int32_t  fd, uint32_t iovs_offset, uint32_t iovs_len, uint32_t nwritten_offset);*/
 static void wa_fd_write(drekkar_wa_data *d)
 {
+	const int nof_results = 1;
+	int nof_parameters_given = nof_parameters_on_stack(d) + nof_results;
+
+	if (nof_parameters_given != 4)
+	{
+		snprintf(d->exception, sizeof(d->exception), "Wrong number of parameters");
+	}
+
     // POP last parameter first.
 	uint32_t nwritten_offset = drekkar_wa_pop_value_i64(d);
     uint32_t iovs_len = drekkar_wa_pop_value_i64(d);
@@ -234,13 +255,33 @@ static void drekkar_wart_version(drekkar_wa_data *d)
 
 
 // 'env/__syscall_open' param i32 i32 i32, result i32'
+//  (import "env" "__syscall_open" (func $fimport$2 (param i32 i32 i32) (result i32)))
+// int __syscall_openat(int dirfd, intptr_t path, int flags, ...); // mode is optional
+// Remember last argument pops up first.
 static void syscall_open(drekkar_wa_data *d)
 {
-	uint32_t p2 = drekkar_wa_pop_value_i64(d);
-	uint32_t p1 = drekkar_wa_pop_value_i64(d);
-	uint32_t p0 = drekkar_wa_pop_value_i64(d);
+	// TODO How do we know there is not more than 3 arguments? That is "..." part.
+	const int nof_results = 1;
+	int nof_parameters_given = nof_parameters_on_stack(d) + nof_results;
+
+	printf("stack %d %d %d\n", d->fp, d->sp, nof_parameters_given);
+
+	if (nof_parameters_given>3)
+	{
+		drekkar_wa_pop_value_i64(d);
+	}
+
+	uint32_t flags = drekkar_wa_pop_value_i64(d);
+	const char* path = drekkar_wa_translate_to_host_addr_space(d, drekkar_wa_pop_value_i64(d), 256);
+	uint32_t dirfd = drekkar_wa_pop_value_i64(d);
+
+	printf("__syscall_open %d '%s' %d\n", flags, path, dirfd);
 
 	// TODO
+	snprintf(d->exception, sizeof(d->exception), "Not implemented: env/__syscall_open %d '%s' %d", flags, path, dirfd);
+
+
+	//int r = fopen();
 
 	drekkar_wa_push_value_i64(d, 0);
 }
@@ -254,6 +295,7 @@ static void syscall_fcntl64(drekkar_wa_data *d)
 	uint32_t p0 = drekkar_wa_pop_value_i64(d);
 
 	// TODO
+	snprintf(d->exception, sizeof(d->exception), "Not implemented: env/__syscall_fcntl64");
 
 	drekkar_wa_push_value_i64(d, 0);
 }
@@ -266,6 +308,7 @@ static void syscall_ioctl(drekkar_wa_data *d)
 	uint32_t p0 = drekkar_wa_pop_value_i64(d);
 
 	// TODO
+	snprintf(d->exception, sizeof(d->exception), "Not implemented: env/__syscall_ioctl");
 
 	drekkar_wa_push_value_i64(d, 0);
 }
@@ -279,6 +322,7 @@ static void fd_read(drekkar_wa_data *d)
 	uint32_t p0 = drekkar_wa_pop_value_i64(d);
 
 	// TODO
+	snprintf(d->exception, sizeof(d->exception), "Not implemented: wasi_snapshot_preview1/fd_read");
 
 	drekkar_wa_push_value_i64(d, 0);
 }
@@ -289,6 +333,7 @@ static void fd_close(drekkar_wa_data *d)
 	uint32_t p0 = drekkar_wa_pop_value_i64(d);
 
 	// TODO
+	snprintf(d->exception, sizeof(d->exception), "Not implemented: wasi_snapshot_preview1/fd_close");
 
 	drekkar_wa_push_value_i64(d, 0);
 }
@@ -300,6 +345,7 @@ static void syscall_getcwd(drekkar_wa_data *d)
 	uint32_t p0 = drekkar_wa_pop_value_i64(d);
 
 	// TODO
+	snprintf(d->exception, sizeof(d->exception), "Not implemented: env/__syscall_getcwd");
 
 	drekkar_wa_push_value_i64(d, 0);
 }
@@ -312,6 +358,7 @@ static void syscall_readlink(drekkar_wa_data *d)
 	uint32_t p0 = drekkar_wa_pop_value_i64(d);
 
 	// TODO
+	snprintf(d->exception, sizeof(d->exception), "Not implemented: env/__syscall_readlink");
 
 	drekkar_wa_push_value_i64(d, 0);
 }
@@ -323,34 +370,51 @@ static void syscall_fstat64(drekkar_wa_data *d)
 	uint32_t p0 = drekkar_wa_pop_value_i64(d);
 
 	// TODO
+	snprintf(d->exception, sizeof(d->exception), "Not implemented: env/__syscall_fstat64");
 
 	drekkar_wa_push_value_i64(d, 0);
 }
 
 // 'env/__syscall_stat64' param i32 i32, result i32'
+// https://github.com/emscripten-core/emscripten/blob/main/system/lib/libc/musl/arch/emscripten/syscall_arch.h
+//     int __syscall_stat64(intptr_t path, intptr_t buf);
 static void syscall_stat64(drekkar_wa_data *d)
 {
-	uint32_t p1 = drekkar_wa_pop_value_i64(d);
-	uint32_t p0 = drekkar_wa_pop_value_i64(d);
+	// Remember last argument pops up first.
+	struct stat *statbuf = (struct stat*)drekkar_wa_translate_to_host_addr_space(d, drekkar_wa_pop_value_i64(d), sizeof(struct stat));
+	const char* pathname = (const char*)drekkar_wa_translate_to_host_addr_space(d, drekkar_wa_pop_value_i64(d), 256);
 
-	// TODO
+	// This is not tested!
+	int r = stat(pathname, statbuf);
 
-	drekkar_wa_push_value_i64(d, 0);
+	// Typically errno is set if there was a fail.
+	if (r)
+	{
+		// TODO Find and set errno.
+		// (export "__errno_location" (func $158))
+	}
+
+	printf("__syscall_stat64 %s %d\n", pathname, r);
+
+	drekkar_wa_push_value_i64(d, r);
 }
 
 // 'env/__syscall_lstat64' param i32 i32, result i32'
+// int __syscall_lstat64(intptr_t path, intptr_t buf);
 static void syscall_lstat64(drekkar_wa_data *d)
 {
 	uint32_t p1 = drekkar_wa_pop_value_i64(d);
 	uint32_t p0 = drekkar_wa_pop_value_i64(d);
 
 	// TODO
+	snprintf(d->exception, sizeof(d->exception), "Not implemented: env/__syscall_lstat64");
 
 	drekkar_wa_push_value_i64(d, 0);
 }
 
 
 // 'env/__syscall_fstatat64' param i32 i32 i32 i32, result i32'
+//  (import "env" "__syscall_fstatat64" (func $fimport$12 (param i32 i32 i32 i32) (result i32)))
 static void syscall_fstatat64(drekkar_wa_data *d)
 {
 	uint32_t p3 = drekkar_wa_pop_value_i64(d);
@@ -359,6 +423,7 @@ static void syscall_fstatat64(drekkar_wa_data *d)
 	uint32_t p0 = drekkar_wa_pop_value_i64(d);
 
 	// TODO
+	snprintf(d->exception, sizeof(d->exception), "Not implemented: env/__syscall_fstatat64");
 
 	drekkar_wa_push_value_i64(d, 0);
 }
@@ -373,6 +438,7 @@ static void fd_seek(drekkar_wa_data *d)
 	uint32_t p0 = drekkar_wa_pop_value_i64(d);
 
 	// TODO
+	snprintf(d->exception, sizeof(d->exception), "Not implemented: wasi_snapshot_preview1/fd_seek");
 
 	drekkar_wa_push_value_i64(d, 0);
 }

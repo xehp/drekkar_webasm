@@ -499,7 +499,7 @@ long drekkar_hash_list_put(drekkar_hash_list *list, const char* key_ptr, void* p
 		const long new_capacity = old_capacity * 2;
 		drekkar_hash_entry* new_storage = DREKKAR_ST_MALLOC(new_capacity*sizeof(drekkar_hash_entry));
 		memset(new_storage, 0, new_capacity*sizeof(drekkar_hash_entry));
-		printf("hash_list expanded to %ld\n", new_capacity);
+		D("hash_list expanded to %ld\n", new_capacity);
 
 		// Need to reenter all data over to new list.
 		for(long i = 0; i < old_capacity; ++i)
@@ -1821,7 +1821,10 @@ static long call_imported_function(const drekkar_wa_prog *p, drekkar_wa_data *d,
 	const drekkar_wa_func_type_type *type = drekkar_get_func_type_ptr(p, func->func_type_idx);
 	assert(type);
 	if (STACK_SIZE(d) < type->nof_parameters) {return DREKKAR_WA_INSUFFICIENT_PARRAMETERS_FOR_CALL;}
-	long expected_sp = d->sp + type->nof_results - type->nof_parameters;
+	const drekkar_stack_pointer_type expected_sp_after_call = d->sp - type->nof_parameters;
+	const long expected_sp = d->sp + type->nof_results - type->nof_parameters;
+	drekkar_stack_pointer_type saved_frame_pointer = d->fp;
+	d->fp = expected_sp_after_call + DREKKAR_SP_OFFSET;
 
 	//printf("Calling '%s'\n", func->import_info.name);
 
@@ -1839,6 +1842,9 @@ static long call_imported_function(const drekkar_wa_prog *p, drekkar_wa_data *d,
 		snprintf(d->exception, sizeof(d->exception), "Unexpected nof parameters and/or arguments, %d != %d, %s.", (int) expected_sp, (int) d->sp, tmp);
 		return DREKKAR_WA_EXTERNAL_STACK_MISMATCH;
 	}
+
+	d->fp = saved_frame_pointer;
+
 	return DREKKAR_WA_OK;
 }
 
