@@ -51,7 +51,7 @@
 #include "drekkar_wa_core.h"
 
 
-#define D(...) {fprintf(stdout, __VA_ARGS__);}
+//#define D(...) {fprintf(stdout, __VA_ARGS__);}
 
 
 #ifndef D
@@ -1154,6 +1154,7 @@ static uint32_t leb_read_uint32(dwac_leb128_reader_type *r)
     return v;
 }
 
+#ifndef SKIP_FLOAT
 // TODO This might fail on a big endian host.
 static uint64_t leb_read_uint64(dwac_leb128_reader_type *r)
 {
@@ -1161,6 +1162,7 @@ static uint64_t leb_read_uint64(dwac_leb128_reader_type *r)
     r->pos += 8;
     return v;
 }
+#endif
 
 static uint8_t leb_read_uint8(dwac_leb128_reader_type *r)
 {
@@ -1784,6 +1786,7 @@ static uint32_t find_else_or_end(const dwac_prog *p, const dwac_data *d, uint32_
 // to recursively call wa_tick instead of this block stack stuff.
 long dwac_setup_function_call(const dwac_prog *p, dwac_data *d, uint32_t function_idx)
 {
+	D("dwac_setup_function_call %d\n", function_idx);
 	if (function_idx < p->funcs_vector.nof_imported) {return DWAC_CAN_NOT_CALL_IMPORTED_HERE;}
 	if (function_idx >= p->funcs_vector.total_nof) {return DWAC_FUNC_IDX_OUT_OF_RANGE;}
 	dwac_function *func = &p->funcs_vector.functions_array[function_idx];
@@ -1819,7 +1822,7 @@ long dwac_setup_function_call(const dwac_prog *p, dwac_data *d, uint32_t functio
 
 static long call_imported_function(const dwac_prog *p, dwac_data *d, uint32_t function_idx)
 {
-	printf("call_imported_function %d\n", function_idx);
+	D("call_imported_function %d\n", function_idx);
 	if (function_idx >= p->funcs_vector.nof_imported) {return DWAC_NOT_AN_IDX_OF_IMPORTED_FUNCTION;}
 	dwac_function *func = &p->funcs_vector.functions_array[function_idx];
 	assert(func && (func->func_type_idx >= 0));
@@ -1857,6 +1860,7 @@ static long call_imported_function(const dwac_prog *p, dwac_data *d, uint32_t fu
 // Returns zero if OK
 long dwac_tick(const dwac_prog *p, dwac_data *d)
 {
+	D("dwac_tick\n");
 	assert(d->block_stack.size != 0);
 
 	// Regarding gas metering. As a CPU optimization: Instead of counting every
@@ -2436,6 +2440,7 @@ long dwac_tick(const dwac_prog *p, dwac_data *d)
 				D("i64.load 0x%x 0x%x 0x%llx\n", offset, addr, (unsigned long long)TOP_U64(d));
 				break;
 			}
+			#ifndef SKIP_FLOAT
 			case 0x2a: // f32.load
 			{
 				/*const uint32_t flags =*/ leb_read(&d->pc, 32);
@@ -2456,6 +2461,7 @@ long dwac_tick(const dwac_prog *p, dwac_data *d)
 				D("f64.load");
 				break;
 		    }
+			#endif
 		    case 0x2c: // i32.load8_s
 		    {
 				/*const uint32_t flags =*/ leb_read(&d->pc, 32);
@@ -3126,7 +3132,7 @@ long dwac_tick(const dwac_prog *p, dwac_data *d)
 				const uint32_t a = TOP_U32(d);
 				const uint32_t c = rotl32(a, b);
 				SET_U32(d, c);
-				printf("i32.rotl 0x%x 0x%x 0x%x\n", a, b, c);
+				D("i32.rotl 0x%x 0x%x 0x%x\n", a, b, c);
 				break;
 			}
 			case 0x78: // i32.rotr
@@ -3135,7 +3141,7 @@ long dwac_tick(const dwac_prog *p, dwac_data *d)
 				const uint32_t a = TOP_U32(d);
 				const uint32_t c = rotr32(a, b);
 				SET_U32(d, c);
-				printf("i32.rotr 0x%x 0x%x 0x%x\n", a, b, c);
+				D("i32.rotr 0x%x 0x%x 0x%x\n", a, b, c);
 				break;
 			}
 			case 0x79: // i64.clz
@@ -3144,7 +3150,7 @@ long dwac_tick(const dwac_prog *p, dwac_data *d)
 				const int64_t a = TOP_I64(d);
 				const int32_t c = __builtin_clzll(a);
 				SET_I32(d, c);
-				printf("i64.clz 0x%llx %d\n", (long long)a, c);
+				D("i64.clz 0x%llx %d\n", (long long)a, c);
 				break;
 			}
 			case 0x7a: // i64.ctz
@@ -3153,7 +3159,7 @@ long dwac_tick(const dwac_prog *p, dwac_data *d)
 				const int64_t a = TOP_I64(d);
 				const int32_t c = __builtin_ctzll(a);
 				SET_I32(d, c);
-				printf("i64.ctz 0x%llx %d\n", (long long)a, c);
+				D("i64.ctz 0x%llx %d\n", (long long)a, c);
 				break;
 			}
 			case 0x7b: // i64.popcnt
@@ -3162,7 +3168,7 @@ long dwac_tick(const dwac_prog *p, dwac_data *d)
 				const int64_t a = TOP_I64(d);
 				const int32_t c = __builtin_popcountll(a);
 				SET_I32(d, c);
-				printf("i64.popcnt 0x%llx %d\n", (long long)a, c);
+				D("i64.popcnt 0x%llx %d\n", (long long)a, c);
 				break;
 			}
 			case 0x7c: // i64.add
@@ -3865,12 +3871,13 @@ long dwac_parse_prog_sections(dwac_prog *p, const uint8_t *bytes, uint32_t byte_
 	{
 		D("next byte %02x\n", p->bytecodes.array[p->bytecodes.pos]);
 		uint32_t section_id = leb_read(&p->bytecodes, 7);
+		uint32_t tmp = ~section_id;
 		D("section_id %02x\n", section_id);
 		uint32_t section_len = leb_read(&p->bytecodes, 32);
 		const uint32_t section_begin = p->bytecodes.pos;
 		D("Parsing prog section %d, pos 0x%llx, len %d\n", section_id, (long long)p->bytecodes.pos, section_len);
 		D("section_id %02x\n", section_id);
-
+		assert(tmp == ~section_id);
 		switch (section_id)
 		{
 			case 0: // Custom Section

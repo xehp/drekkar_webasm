@@ -45,7 +45,7 @@ Created October 2023 by Henrik
 #include "drekkar_wa_env.h"
 
 
-#define D(...) {fprintf(stdout, __VA_ARGS__);}
+//#define D(...) {fprintf(stdout, __VA_ARGS__);}
 
 #ifndef D
 #define D(...)
@@ -287,6 +287,7 @@ static void drekkar_wart_version(dwac_data *d)
 // 'env/__syscall_open' param i32 i32 i32, result i32'
 //  (import "env" "__syscall_open" (func $fimport$2 (param i32 i32 i32) (result i32)))
 // https://man7.org/linux/man-pages/man2/open.2.html
+// int open(const char *pathname, int flags, mode_t mode);
 // Remember last argument pops up first.
 static void syscall_open(dwac_data *d)
 {
@@ -301,18 +302,22 @@ static void syscall_open(dwac_data *d)
 		d->sp -= nof_parameters_given - 3;
 	}
 
-	mode_t *mode = dwac_translate_to_host_addr_space(d, dwac_pop_value_i64(d), sizeof(mode_t));
-	int* flags = (int*)dwac_translate_to_host_addr_space(d, dwac_pop_value_i64(d), 4);
-	const char* pathname = dwac_translate_to_host_addr_space(d, dwac_pop_value_i64(d), 256);
+
+	int mode_i = dwac_pop_value_i64(d);
+	int flags = dwac_pop_value_i64(d);
+	int pathname_i = dwac_pop_value_i64(d);
 
 
-	// TODO
-	//snprintf(d->exception, sizeof(d->exception), "Not implemented: env/__syscall_open '%s' %d\n", pathname, *flags);
+	printf("syscall_open %x %x %x\n", pathname_i, flags, mode_i);
 
 
-	int r = open(pathname, *flags, *mode);
+	mode_t *mode = dwac_translate_to_host_addr_space(d, mode_i, sizeof(mode_t));
+	const char* pathname = dwac_translate_to_host_addr_space(d, pathname_i, 1);
 
-	printf("syscall_open '%s' %d  %d\n", pathname, *flags, r);
+
+	int r = open(pathname, flags, *mode);
+
+	D("syscall_open '%s' %d  %d\n", pathname, *flags, r);
 
 	dwac_push_value_i64(d, r);
 }
@@ -358,12 +363,11 @@ static void syscall_ioctl(dwac_data *d)
 		d->sp -= (nof_parameters_given - 3);
 	}
 
-
-	void* p2 = dwac_translate_to_host_addr_space(d, dwac_pop_value_i64(d), 4);
+	void* ptr = dwac_translate_to_host_addr_space(d, dwac_pop_value_i64(d), 1);
 	unsigned long request = dwac_pop_value_i64(d);
 	uint32_t fd = dwac_pop_value_i64(d);
 
-	int r = ioctl(fd, request, p2);
+	int r = ioctl(fd, request, ptr);
     if (r<0)
     {
     	// Typically errno is set if there was a fail.
@@ -418,7 +422,7 @@ static void fd_read(dwac_data *d)
 
 	//printf("iovs_len %d\n", iovs_len);
 
-	assert((fd==1) || (fd==3)); // TODO Don't hardcode 3.
+	assert((fd==1) || (fd==3)); // TODO Don't hard code 3.
 	for(unsigned int i=0; i < iovs_len; ++i)
 	{
 		wa_ciovec_type *v = &iovs_offset_ptr[i];
@@ -429,14 +433,14 @@ static void fd_read(dwac_data *d)
 		ssize_t r = read(fd, ptr, v->buf_len);
 		if (r>=0)
 		{
-			printf("fd_read ");
+			/*printf("fd_read ");
 			log_hex(ptr, r);
-			printf("\n");
+			printf("\n");*/
 			n += r;
 		}
 		else
 		{
-			printf("fd_read fail %zd", r);
+			printf("fd_read fail %zd\n", r);
 			dwac_push_value_i64(d, r);
 			return;
 		}
@@ -646,7 +650,7 @@ static long parse_data_sections(const dwac_prog *p, dwac_data *d)
 
 static long set_command_line_arguments(dwac_env_type *e)
 {
-	D("set_command_line_arguments\n");
+	D("set_command_line_arguments %d\n", e->argc);
 
 	if (e->function_name)
 	{

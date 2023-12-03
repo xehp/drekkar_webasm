@@ -4,6 +4,7 @@ obj
 .metadata
 *.bin
 log*
+*.log
 */.settings/language.settings.xml
 a.out
 a.out.*

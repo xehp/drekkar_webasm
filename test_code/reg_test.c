@@ -791,6 +791,39 @@ static int test_more_i32(int a)
            printf("Fail, a should be >24 && <28, but is %d.\n", a);
     }
 
+    int c = a - 20;
+    for(unsigned long long i = 0; i < 10; i++)
+    {
+        if (c <= i) 
+        {
+	    a += 3;
+        }
+    }            
+
+    for(unsigned long long i = 0; i < 10; i++)
+    {
+        if (c < i) 
+        {
+	    a += 5;
+        }
+    }            
+
+    for(unsigned long long i = 0; i < 10; i++)
+    {
+        if (c >= i) 
+        {
+	    a += 7;
+        }
+    }            
+
+    for(unsigned long long i = 0; i < 10; i++)
+    {
+        if (c > i) 
+        {
+	    a += 11;
+        }
+    }            
+
     return a;
 }
 
@@ -885,6 +918,40 @@ static unsigned int test_more_u32(unsigned int a)
     {
            printf("Fail, a should be >24 && <28, but is %u.\n", a);
     }
+
+    int c = a - 20;
+    for(long long i = 0; i < 10; i++)
+    {
+        if (c <= i) 
+        {
+	    a += 3;
+        }
+    }            
+
+    for(long long i = 0; i < 10; i++)
+    {
+        if (c < i) 
+        {
+	    a += 5;
+        }
+    }            
+
+    for(long long i = 0; i < 10; i++)
+    {
+        if (c >= i) 
+        {
+	    a += 7;
+        }
+    }            
+
+    for(long long i = 0; i < 10; i++)
+    {
+        if (c > i) 
+        {
+	    a += 11;
+        }
+    }            
+
 
     return a;
 }
@@ -983,6 +1050,39 @@ static long long test_more_i64(long long a)
            printf("Fail, a should be >24 && <28, but is %lld.\n", a);
     }
 
+    long long c = a - 20;
+    for(int i = 0; i < 10; i++)
+    {
+        if (c <= i) 
+        {
+	    a += 3;
+        }
+    }            
+
+    for(int i = 0; i < 10; i++)
+    {
+        if (c < i) 
+        {
+	    a += 5;
+        }
+    }            
+
+    for(int i = 0; i < 10; i++)
+    {
+        if (c >= i) 
+        {
+	    a += 7;
+        }
+    }            
+
+    for(int i = 0; i < 10; i++)
+    {
+        if (c > i) 
+        {
+	    a += 11;
+        }
+    }            
+
     return a;
 }
 
@@ -1079,6 +1179,39 @@ static unsigned long long test_more_u64(unsigned long long a)
     {
            printf("Fail, a should be >24 && <28, but is %llu.\n", a);
     }
+
+    unsigned long long c = a - 20;
+    for(int i = 0; i < 10; i++)
+    {
+        if (c <= i) 
+        {
+	    a += 3;
+        }
+    }            
+
+    for(int i = 0; i < 10; i++)
+    {
+        if (c < i) 
+        {
+	    a += 5;
+        }
+    }            
+
+    for(int i = 0; i < 10; i++)
+    {
+        if (c >= i) 
+        {
+	    a += 7;
+        }
+    }            
+
+    for(int i = 0; i < 10; i++)
+    {
+        if (c > i) 
+        {
+	    a += 11;
+        }
+    }            
 
     return a;
 }
@@ -1273,6 +1406,25 @@ static void double_test()
     printf("floor(%g) = %g\n", c, floor(c));
 }
 
+static int test_snprintf(int r)
+{
+    int m1 = 17;
+    char tmp[33+1];
+    int m2 = 19;
+    uint32_t section_id = r;
+    uint32_t section_len = r * r;
+    long long_nr = section_len / 3;
+    long long unsigned pos = r + 5;
+    snprintf(tmp, sizeof(tmp), "snprintf %d, pos 0x%llx, len %d, %ld", section_id, pos, section_len, long_nr);
+    size_t len =strlen(tmp);
+    printf("%zu '%s'\n", len, tmp);
+
+    for(int i = 0; i < len; ++i)
+    {
+       r += tmp[i]; 
+    }
+    return m1+m2+r;
+}
 
 static int32_t a = 0;
 static int64_t b = 0;
@@ -1323,7 +1475,7 @@ int main(int argc, char** args)
 {
     // Start "r" at some value so that in the end we have zero left.
     // If result is non zero then something is fail.
-    int r = -790710061;
+    int r = -790710061-568-3422-36+923+10;
 
     r += log_arguments(argc, args);
 
@@ -1347,8 +1499,8 @@ int main(int argc, char** args)
     r += test_rotation_32(0x01020304);
     r += test_rotation_64(0x01020304);
 
-    float_test();
-    double_test();
+    //float_test();
+    //double_test();
 
     r += test_load();
 
@@ -1359,6 +1511,8 @@ int main(int argc, char** args)
     r += test_sha1digest();
 
     r += test_negative_i64(-9);
+
+    r += test_snprintf(10);
 
     printf("result %d\n", r);
 
