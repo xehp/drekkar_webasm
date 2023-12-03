@@ -16,6 +16,13 @@ This program was developed on Linux, it's not tested on other OSes.
 To see what is tested check the test_code/reg_test.c file. To see what 
 is not tested check the source code for comments about "not tested".
 
+This project is not production ready. It passes its reg test but it
+fails when trying to run it with a web asm version of itself:
+  emcc drekkar_wa_core.c drekkar_wa_env.c main.c
+  ./drekkar_webasm_runtime --logging-on a.out.wasm --logging-on 
+     --function_name test ~/git/drekkar_webasm/test_code/test.wasm
+  So probably something is not 100% correct...
+
 Copyright (C) 2023<br>
 Henrik Bjorkman http://www.eit.se/hb<br>
 

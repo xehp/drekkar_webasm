@@ -51,8 +51,12 @@
 #include "drekkar_wa_core.h"
 
 
-//#define D(...) {fprintf(stdout, __VA_ARGS__);}
+#define D(...) {fprintf(stdout, __VA_ARGS__);}
+
+
+#ifndef D
 #define D(...)
+#endif
 
 
 
@@ -218,7 +222,7 @@ void* dwac_st_malloc(size_t size, const char *file, unsigned int line)
 	// Some logging (this can be removed later).
 	if (alloc_counter >= (2*logged_alloc_counter))
 	{
-		printf("sys_alloc %lu %ld\n", alloc_size, alloc_counter);
+		D("sys_alloc %lu %ld\n", alloc_size, alloc_counter);
 		logged_alloc_counter = alloc_counter;
 	}
 
@@ -249,7 +253,7 @@ void* dwac_st_calloc(size_t num, size_t size, const char *file, unsigned int lin
 	// Some logging (this can be removed later).
 	if (alloc_counter >= (2*logged_alloc_counter))
 	{
-		printf("sys_alloc %lu %ld\n", alloc_size, alloc_counter);
+		D("sys_alloc %lu %ld\n", alloc_size, alloc_counter);
 		logged_alloc_counter = alloc_counter;
 	}
 
@@ -418,7 +422,7 @@ void dwac_hash_list_init(dwac_hash_list *list)
 	list->capacity = DWAC_HASH_LIST_INIT_SIZE;
 	list->array = DWAC_ST_MALLOC(list->capacity*sizeof(dwac_hash_entry));
 	memset(list->array, 0, list->capacity*sizeof(dwac_hash_entry));
-	//printf("hash_list initial capacity %ld\n", list->capacity);
+	//D("hash_list initial capacity %ld\n", list->capacity);
 
 }
 
@@ -1815,13 +1819,14 @@ long dwac_setup_function_call(const dwac_prog *p, dwac_data *d, uint32_t functio
 
 static long call_imported_function(const dwac_prog *p, dwac_data *d, uint32_t function_idx)
 {
+	printf("call_imported_function %d\n", function_idx);
 	if (function_idx >= p->funcs_vector.nof_imported) {return DWAC_NOT_AN_IDX_OF_IMPORTED_FUNCTION;}
 	dwac_function *func = &p->funcs_vector.functions_array[function_idx];
 	assert(func && (func->func_type_idx >= 0));
 	const dwac_func_type_type *type = dwac_get_func_type_ptr(p, func->func_type_idx);
 	assert(type);
 	if (STACK_SIZE(d) < type->nof_parameters) {return DWAC_INSUFFICIENT_PARRAMETERS_FOR_CALL;}
-	const dwac_stack_pointer_type expected_sp_after_call = d->sp - type->nof_parameters;
+	const dwac_stack_pointer_type expected_sp_after_call = d->sp - type->nof_parameters; // not counting results here
 	dwac_stack_pointer_type saved_frame_pointer = d->fp;
 	d->fp = expected_sp_after_call + DWAC_SP_OFFSET;
 
@@ -3835,6 +3840,8 @@ static void* find_imported_function(const dwac_prog *p, const char *name)
 // TODO Perhaps split this code so we can initialize data more than once for same prog.
 long dwac_parse_prog_sections(dwac_prog *p, const uint8_t *bytes, uint32_t byte_count, char *exception, size_t exception_size, FILE* log)
 {
+	D("dwac_parse_prog_sections %d\n", byte_count);
+
 	const size_t max_nof = 16 + byte_count/16;
 
 	p->bytecodes.array = bytes;
@@ -3845,6 +3852,7 @@ long dwac_parse_prog_sections(dwac_prog *p, const uint8_t *bytes, uint32_t byte_
 	{
 		const uint32_t magic_word = leb_read_uint32(&p->bytecodes);
 		const uint32_t magic_version = leb_read_uint32(&p->bytecodes);
+		D("Magic %08x %x\n", magic_word, magic_version);
 		if ((magic_word != DWAC_MAGIC) || (magic_version != DWAC_VERSION))
 		{
 			snprintf(exception, exception_size, "Not WebAsm or not supported version 0x%08x 0x%08x", magic_word, magic_version);
@@ -3855,10 +3863,13 @@ long dwac_parse_prog_sections(dwac_prog *p, const uint8_t *bytes, uint32_t byte_
 	// Read the sections
 	while (p->bytecodes.pos < p->bytecodes.nof)
 	{
+		D("next byte %02x\n", p->bytecodes.array[p->bytecodes.pos]);
 		uint32_t section_id = leb_read(&p->bytecodes, 7);
+		D("section_id %02x\n", section_id);
 		uint32_t section_len = leb_read(&p->bytecodes, 32);
 		const uint32_t section_begin = p->bytecodes.pos;
 		D("Parsing prog section %d, pos 0x%llx, len %d\n", section_id, (long long)p->bytecodes.pos, section_len);
+		D("section_id %02x\n", section_id);
 
 		switch (section_id)
 		{
@@ -4267,6 +4278,8 @@ long dwac_parse_prog_sections(dwac_prog *p, const uint8_t *bytes, uint32_t byte_
 
 long dwac_parse_data_sections(const dwac_prog *p, dwac_data *d)
 {
+	D("dwac_parse_data_sections\n");
+
 	const size_t max_nof = 16 + p->bytecodes.nof/16;
 
 	leb128_reader_init(&d->pc, p->bytecodes.array, p->bytecodes.nof);
@@ -4551,6 +4564,7 @@ void dwac_register_function(dwac_prog *p, const char *name, dwac_func_ptr ptr)
 
 void dwac_prog_deinit(dwac_prog *p)
 {
+	D("dwac_prog_deinit\n");
 	dwac_linear_storage_size_deinit(&p->function_types_vector);
 
 	for (uint32_t i = 0; i < p->funcs_vector.nof_imported; i++)
@@ -4612,6 +4626,7 @@ void dwac_prog_deinit(dwac_prog *p)
 
 void dwac_data_init(dwac_data *d)
 {
+	D("dwac_data_init\n");
 	memset(d, 0, sizeof(dwac_data));
 
 	D("sizeof(wa_value_type) %zu\n", sizeof(dwac_value_type));
@@ -4639,6 +4654,7 @@ void dwac_data_init(dwac_data *d)
 
 void dwac_data_deinit(dwac_data *d, FILE* log)
 {
+	D("dwac_data_deinit\n");
 	assert(d->exception[sizeof(d->exception)-1]==0);
 
 	if (log) {
@@ -4663,6 +4679,7 @@ void dwac_data_deinit(dwac_data *d, FILE* log)
 
 void dwac_prog_init(dwac_prog *p)
 {
+	D("dwac_prog_init\n");
 	memset(p, 0, sizeof(dwac_prog));
 	dwac_hash_list_init(&p->available_functions_list);
 	dwac_hash_list_init(&p->exported_functions_list);

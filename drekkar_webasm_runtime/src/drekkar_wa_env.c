@@ -44,6 +44,13 @@ Created October 2023 by Henrik
 #include "drekkar_wa_core.h"
 #include "drekkar_wa_env.h"
 
+
+#define D(...) {fprintf(stdout, __VA_ARGS__);}
+
+#ifndef D
+#define D(...)
+#endif
+
 #define MAX_MEM_QUOTA 0x10000000
 
 typedef struct wa_ciovec_type {
@@ -52,6 +59,16 @@ typedef struct wa_ciovec_type {
 } wa_ciovec_type;
 
 
+static void log_hex(const uint8_t *ptr, size_t n)
+{
+	for(size_t i = 0; i < n;i++)
+	{
+		printf("%02x", ptr[i]);
+	}
+}
+
+// Tip: To know what the file should look like try something like:
+//      od -t x1 hello_world.wasm
 static size_t load_file(dwac_linear_storage_8_type *storage, const char* file_path)
 {
 	FILE *fp = fopen(file_path, "r+");
@@ -81,11 +98,11 @@ static int nof_parameters_on_stack(dwac_data *d)
 
 
 /*uint32_fd_write(int32_t  fd, uint32_t iovs_offset, uint32_t iovs_len, uint32_t nwritten_offset);*/
+// https://wasix.org/docs/api-reference/wasi/fd_write
 static void wa_fd_write(dwac_data *d)
 {
 	const int nof_results = 1;
 	int nof_parameters_given = nof_parameters_on_stack(d) + nof_results;
-
 	if (nof_parameters_given != 4)
 	{
 		snprintf(d->exception, sizeof(d->exception), "Wrong number of parameters");
@@ -100,7 +117,7 @@ static void wa_fd_write(dwac_data *d)
 	int n = 0;
 
 	// Translate from script internal to host addresses.
-	wa_ciovec_type* iovs_offset_ptr = (wa_ciovec_type*) (dwac_translate_to_host_addr_space(d, iovs_offset, 4));
+	const wa_ciovec_type* iovs_offset_ptr = (wa_ciovec_type*) (dwac_translate_to_host_addr_space(d, iovs_offset, 4));
 	uint32_t* nwritten_offset_ptr = (uint32_t*) (dwac_translate_to_host_addr_space(d, nwritten_offset, 4));
 
 	//printf("iovs_len %d\n", iovs_len);
@@ -108,7 +125,7 @@ static void wa_fd_write(dwac_data *d)
 	assert((fd>=1) && (fd<=2));
 	for(unsigned int i=0; i < iovs_len; ++i)
 	{
-		wa_ciovec_type *v = &iovs_offset_ptr[i];
+		const wa_ciovec_type *v = &iovs_offset_ptr[i];
 
 		//printf(" <v->buf_len %d> ", v->buf_len);
 		const uint8_t* ptr = (uint8_t*)dwac_translate_to_host_addr_space(d, v->buf, v->buf_len);
@@ -137,15 +154,27 @@ static void wa_fd_write(dwac_data *d)
 
 // Not tested.
 // void memcpy_big(uint32_t dest, uint32_t src, uint32_t num);
-static void wa_memcpy_big(dwac_data *d)
+// (import "env" "emscripten_memcpy_big" (func $fimport$1 (param i32 i32 i32) (result i32)))
+static void memcpy_big(dwac_data *d)
 {
+	long n = 0;
+	const int nof_results = 1;
+	int nof_parameters_given = nof_parameters_on_stack(d) + nof_results;
+	if (nof_parameters_given != 3)
+	{
+		snprintf(d->exception, sizeof(d->exception), "Wrong number of parameters");
+	}
+
+    // POP last parameter first.
 	uint32_t num = dwac_pop_value_i64(d);
-    uint32_t dest = dwac_pop_value_i64(d);
     uint32_t src = dwac_pop_value_i64(d);
+    uint32_t dest = dwac_pop_value_i64(d);
 
 	void* dest_ptr = dwac_translate_to_host_addr_space(d, dest, num);
-	void* src_ptr = dwac_translate_to_host_addr_space(d, src, num);
+	const void* src_ptr = dwac_translate_to_host_addr_space(d, src, num);
 	memcpy(dest_ptr, src_ptr, num);
+
+	dwac_push_value_i64(d, WASI_ESUCCESS);
 }
 
 // https://github.com/emscripten-core/emscripten/issues/6024
@@ -254,7 +283,7 @@ static void drekkar_wart_version(dwac_data *d)
 	dwac_push_value_i64(d, v);
 }
 
-
+// Not tested.
 // 'env/__syscall_open' param i32 i32 i32, result i32'
 //  (import "env" "__syscall_open" (func $fimport$2 (param i32 i32 i32) (result i32)))
 // https://man7.org/linux/man-pages/man2/open.2.html
@@ -289,6 +318,7 @@ static void syscall_open(dwac_data *d)
 }
 
 
+// Not tested.
 // 'env/__syscall_fcntl64' param i32 i32 i32, result i32'
 static void syscall_fcntl64(dwac_data *d)
 {
@@ -302,15 +332,25 @@ static void syscall_fcntl64(dwac_data *d)
 	dwac_push_value_i64(d, 0);
 }
 
+// Not tested.
 // int ioctl(int fd, unsigned long request, ...);
+//  (import "env" "__syscall_ioctl" (func $fimport$4 (param i32 i32 i32) (result i32)))
 // 'env/__syscall_ioctl' param i32 i32 i32, result i32'
+// https://github.com/WebAssembly/wasi-libc/blob/main/libc-top-half/musl/arch/mipsn32/bits/ioctl.h
+//
+// https://drewdevault.com/2022/05/14/generating-ioctls.html
+// 14 May 2022 — There are thousands of ioctls provided by Linux,
+// and each of them is assigned a constant like TIOCGWINSZ (0x5413).
+// Some constants, including ...
+//
+//
 static void syscall_ioctl(dwac_data *d)
 {
 	const int nof_results = 1;
 	int nof_parameters_given = nof_parameters_on_stack(d) + nof_results;
 	if (nof_parameters_given < 3)
 	{
-		snprintf(d->exception, sizeof(d->exception), "Wrong number of parameters");
+		snprintf(d->exception, sizeof(d->exception), "Insufficient number of parameters");
 	}
 	else if (nof_parameters_given>3)
 	{
@@ -329,7 +369,7 @@ static void syscall_ioctl(dwac_data *d)
     	// Typically errno is set if there was a fail.
     	int *e = (int *)dwac_translate_to_host_addr_space(d, d->errno_location, sizeof(int));
     	*e = errno;
-    	printf("syscall_ioctl fail %d %ld  %d %d '%s'\n", fd, request, r, errno, strerror(errno));
+    	printf("syscall_ioctl fail %d %ld 0x%lx %d %d '%s'\n", fd, request, request, r, errno, strerror(errno));
     }
     else
     {
@@ -339,31 +379,92 @@ static void syscall_ioctl(dwac_data *d)
 	dwac_push_value_i64(d, r);
 }
 
+// Not tested.
 // 'wasi_snapshot_preview1/fd_read' param i32 i32 i32 i32, result i32'
+//
+// https://wasix.org/docs/api-reference/wasi/fd_read
+// In POSIX systems, reading data from a file typically involves
+// updating the file cursor, which determines the next position
+// from which data will be read. The fd_read() function allows
+// reading data from a file without modifying the file cursor's
+// position. This can be useful in scenarios where applications
+// need to read data from a specific location in a file without
+// altering the cursor's state.
+// TODO OMG! Why change everything all the time. And what do we
+// need to do about it? Where then is file cursor updated?
+// Is it the ioctl TIOCGWINSZ that failed for us?
 static void fd_read(dwac_data *d)
 {
-	uint32_t p3 = dwac_pop_value_i64(d);
-	uint32_t p2 = dwac_pop_value_i64(d);
-	uint32_t p1 = dwac_pop_value_i64(d);
-	uint32_t p0 = dwac_pop_value_i64(d);
+	long n = 0;
+	const int nof_results = 1;
+	int nof_parameters_given = nof_parameters_on_stack(d) + nof_results;
+	if (nof_parameters_given != 4)
+	{
+		snprintf(d->exception, sizeof(d->exception), "Wrong number of parameters");
+	}
 
-	// TODO
-	snprintf(d->exception, sizeof(d->exception), "Not implemented: wasi_snapshot_preview1/fd_read");
+    // POP last parameter first.
+	uint32_t nread_offset = dwac_pop_value_i64(d);
+    uint32_t iovs_len = dwac_pop_value_i64(d);
+    uint32_t iovs_offset = dwac_pop_value_i64(d);
+    int32_t  fd = dwac_pop_value_i64(d);
 
-	dwac_push_value_i64(d, 0);
+    D("fd_read %d %d %d %d\n", fd, iovs_offset, iovs_len, nread_offset);
+
+
+	// Translate from script internal to host addresses.
+	wa_ciovec_type* iovs_offset_ptr = (wa_ciovec_type*) (dwac_translate_to_host_addr_space(d, iovs_offset, 4));
+	uint32_t* nread_offset_ptr = (uint32_t*) (dwac_translate_to_host_addr_space(d, nread_offset, 4));
+
+	//printf("iovs_len %d\n", iovs_len);
+
+	assert((fd==1) || (fd==3)); // TODO Don't hardcode 3.
+	for(unsigned int i=0; i < iovs_len; ++i)
+	{
+		wa_ciovec_type *v = &iovs_offset_ptr[i];
+
+		//printf(" <v->buf_len %d> ", v->buf_len);
+		uint8_t* ptr = (uint8_t*)dwac_translate_to_host_addr_space(d, v->buf, v->buf_len);
+
+		ssize_t r = read(fd, ptr, v->buf_len);
+		if (r>=0)
+		{
+			printf("fd_read ");
+			log_hex(ptr, r);
+			printf("\n");
+			n += r;
+		}
+		else
+		{
+			printf("fd_read fail %zd", r);
+			dwac_push_value_i64(d, r);
+			return;
+		}
+	}
+
+	*nread_offset_ptr = n;
+
+    D("fd_read n = %ld\n", n);
+
+	// Push return value.
+	dwac_push_value_i64(d, WASI_ESUCCESS);
 }
 
+// Not tested.
 // 'wasi_snapshot_preview1/fd_close' param i32, result i32'
+//  (import "wasi_snapshot_preview1" "fd_close" (func $fimport$7 (param i32) (result i32)))
 static void fd_close(dwac_data *d)
 {
-	uint32_t p0 = dwac_pop_value_i64(d);
+	uint32_t fd = dwac_pop_value_i64(d);
 
-	// TODO
-	snprintf(d->exception, sizeof(d->exception), "Not implemented: wasi_snapshot_preview1/fd_close");
+	assert(fd ==3);
+	D("fd_close %d\n", fd);
+	close(fd);
 
-	dwac_push_value_i64(d, 0);
+	dwac_push_value_i64(d, WASI_ESUCCESS);
 }
 
+// Not tested.
 // 'env/__syscall_getcwd' param i32 i32, result i32'
 static void syscall_getcwd(dwac_data *d)
 {
@@ -376,6 +477,7 @@ static void syscall_getcwd(dwac_data *d)
 	dwac_push_value_i64(d, 0);
 }
 
+// Not tested.
 // 'env/__syscall_readlink' param i32 i32 i32, result i32'
 static void syscall_readlink(dwac_data *d)
 {
@@ -389,6 +491,7 @@ static void syscall_readlink(dwac_data *d)
 	dwac_push_value_i64(d, 0);
 }
 
+// Not tested.
 // 'env/__syscall_fstat64' param i32 i32, result i32'
 static void syscall_fstat64(dwac_data *d)
 {
@@ -401,6 +504,7 @@ static void syscall_fstat64(dwac_data *d)
 	dwac_push_value_i64(d, 0);
 }
 
+// Not tested.
 // 'env/__syscall_stat64' param i32 i32, result i32'
 // https://github.com/emscripten-core/emscripten/blob/main/system/lib/libc/musl/arch/emscripten/syscall_arch.h
 //     int __syscall_stat64(intptr_t path, intptr_t buf);
@@ -427,6 +531,7 @@ static void syscall_stat64(dwac_data *d)
 	dwac_push_value_i64(d, r);
 }
 
+// Not tested.
 // 'env/__syscall_lstat64' param i32 i32, result i32'
 // int __syscall_lstat64(intptr_t path, intptr_t buf);
 static void syscall_lstat64(dwac_data *d)
@@ -441,6 +546,7 @@ static void syscall_lstat64(dwac_data *d)
 }
 
 
+// Not tested.
 // 'env/__syscall_fstatat64' param i32 i32 i32 i32, result i32'
 //  (import "env" "__syscall_fstatat64" (func $fimport$12 (param i32 i32 i32 i32) (result i32)))
 static void syscall_fstatat64(dwac_data *d)
@@ -456,6 +562,7 @@ static void syscall_fstatat64(dwac_data *d)
 	dwac_push_value_i64(d, 0);
 }
 
+// Not tested.
 // 'wasi_snapshot_preview1/fd_seek' param i32 i32 i32 i32 i32, result i32'
 static void fd_seek(dwac_data *d)
 {
@@ -472,16 +579,19 @@ static void fd_seek(dwac_data *d)
 }
 
 // To tell the runtime which functions we have available for it to call.
+// NOTE! If the guest is to be fully sand boxed some of the functions below
+// need to be disabled (comment out registration of those).
 static void register_functions(dwac_prog *p)
 {
+	D("register_functions\n");
 	dwac_register_function(p, "wasi_snapshot_preview1/fd_write", wa_fd_write);
 	dwac_register_function(p, "wasi_snapshot_preview1/fd_read", fd_read);
 	dwac_register_function(p, "wasi_snapshot_preview1/fd_close", fd_close);
 	dwac_register_function(p, "wasi_snapshot_preview1/fd_seek", fd_seek);
 	dwac_register_function(p, "env/__assert_fail", assert_fail);
-	dwac_register_function(p, "env/emscripten_memcpy_big", wa_memcpy_big);
+	dwac_register_function(p, "env/emscripten_memcpy_big", memcpy_big);
 	dwac_register_function(p, "env/emscripten_resize_heap", emscripten_resize_heap);
-	dwac_register_function(p, "env/emscripten_memcpy_js", wa_memcpy_big);
+	dwac_register_function(p, "env/emscripten_memcpy_js", memcpy_big);
 	dwac_register_function(p, "env/setTempRet0", setTempRet0);
 	dwac_register_function(p, "env/getTempRet0", getTempRet0);
 	dwac_register_function(p, "env/__syscall_open", syscall_open);
@@ -505,6 +615,7 @@ static void register_functions(dwac_prog *p)
 
 static long parse_prog_sections(dwac_prog *p, uint8_t *bytes, size_t file_size, char* exception, size_t size_exception, FILE *log)
 {
+	D("parse_prog_sections\n");
 	const long r = dwac_parse_prog_sections(p, bytes, file_size, exception, size_exception, log);
 	if ((r != 0) || (exception[0] != 0))
 	{
@@ -515,6 +626,8 @@ static long parse_prog_sections(dwac_prog *p, uint8_t *bytes, size_t file_size, 
 
 static long parse_data_sections(const dwac_prog *p, dwac_data *d)
 {
+	D("parse_data_sections\n");
+
 	const long r = dwac_parse_data_sections(p, d);
 	assert(d->exception[sizeof(d->exception)-1]==0);
 	if (r)
@@ -533,6 +646,8 @@ static long parse_data_sections(const dwac_prog *p, dwac_data *d)
 
 static long set_command_line_arguments(dwac_env_type *e)
 {
+	D("set_command_line_arguments\n");
+
 	if (e->function_name)
 	{
 		// Push all arguments to stack as numbers.
@@ -577,6 +692,7 @@ static long long total_memory_usage(dwac_data *d)
 
 static long report_result(const dwac_prog *p, dwac_data *d, const dwac_function *f, FILE* log)
 {
+	D("report_result\n");
 	assert(log);
 	long ret_val = 0;
 	// If the called function had a return value it should be on the stack.
@@ -609,6 +725,7 @@ static long report_result(const dwac_prog *p, dwac_data *d, const dwac_function 
 
 static long call_and_run_exported_function(const dwac_prog *p, dwac_data *d, const dwac_function *f, FILE* log)
 {
+	D("call_and_run_exported_function\n");
 	long long total_gas_usage = 0;
 	long r = dwac_call_exported_function(p, d, f->func_idx);
 	for(;;)
@@ -653,6 +770,7 @@ static long call_and_run_exported_function(const dwac_prog *p, dwac_data *d, con
 
 static long call_errno(dwac_env_type *e)
 {
+	D("call_errno\n");
 	const dwac_function* f = dwac_find_exported_function(e->p, "__errno_location");
 	if (f != NULL)
 	{
@@ -665,6 +783,7 @@ static long call_errno(dwac_env_type *e)
 
 static long call_ctors(const dwac_prog *p, dwac_data *d)
 {
+	D("call_ctors\n");
 	const dwac_function* f = dwac_find_exported_function(p, "__wasm_call_ctors");
 	if (f != NULL)
 	{
@@ -676,19 +795,19 @@ static long call_ctors(const dwac_prog *p, dwac_data *d)
 
 static const dwac_function* find_main(const dwac_prog *p)
 {
+	D("find_main\n");
 	const dwac_function *f = NULL;
-
 	if (f == NULL) {f = dwac_find_exported_function(p, "__main_argc_argv");}
 	if (f == NULL) {f = dwac_find_exported_function(p, "main");}
 	if (f == NULL) {f = dwac_find_exported_function(p, "_start");}
 	if (f == NULL) {f = dwac_find_exported_function(p, "start");}
 	if (f == NULL) {f = dwac_find_exported_function(p, "test");}
-
 	return f;
 }
 
 static long find_and_call(dwac_env_type *e)
 {
+	D("find_and_call\n");
 	// Do we need to call "__wasm_call_ctors" also?
 	long r = call_errno(e);
 	if (r) {return r;}
@@ -720,6 +839,7 @@ static long find_and_call(dwac_env_type *e)
 // Returns zero (WA_OK) if OK.
 long dwae_init(dwac_env_type *e)
 {
+	D("dwae_init\n");
 	long r = 0;
 	char exception[256] = {0};
 
@@ -730,6 +850,10 @@ long dwae_init(dwac_env_type *e)
 	dwac_linear_storage_8_init(&e->bytes);
 
 	uint32_t file_size = load_file(&e->bytes, e->file_name);
+
+	/*printf("hex:\n");
+	log_hex(e->bytes.array, e->bytes.size);
+	printf("\n");*/
 
 	if (file_size < 8)
 	{
@@ -756,6 +880,8 @@ long dwae_init(dwac_env_type *e)
 
 long dwae_tick(dwac_env_type *e)
 {
+	D("dwae_tick\n");
+
 	long r = 0;
 
 	r = parse_data_sections(e->p, e->d);
@@ -772,6 +898,7 @@ long dwae_tick(dwac_env_type *e)
 
 void dwae_deinit(dwac_env_type *e)
 {
+	D("dwae_deinit\n");
 	dwac_data_deinit(e->d, e->log);
 	dwac_prog_deinit(e->p);
 	dwac_linear_storage_8_deinit(&e->bytes);

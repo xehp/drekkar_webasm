@@ -45,7 +45,7 @@
 //    PATCH version when you make backward compatible bug fixes
 // Warning! We do not follow this at early stages when major is 0.
 #define DREKKAR_VERSION_MAJOR 0
-#define DREKKAR_VERSION_MINOR 8
+#define DREKKAR_VERSION_MINOR 9
 #define DREKKAR_VERSION_PATCH 0
 
 
@@ -148,7 +148,7 @@ void dwac_st_log_linked_list();
 
 
 // Size must be power of 2.
-#define DWAC_HASH_LIST_INIT_SIZE 32
+#define DWAC_HASH_LIST_INIT_SIZE 256 // TODO Set it to just 16 again.
 #define DWAC_HASH_LIST_MAX_KEY_SIZE (64)
 
 

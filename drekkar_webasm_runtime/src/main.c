@@ -146,14 +146,14 @@ static int test_drekkar_webasm_runtime(dwac_env_type *e)
 	long r = dwae_init(e);
 	if (r != 0)
 	{
-		printf("wa_env_init failed %ld\n", r);
+		printf("dwae_init failed %ld\n", r);
 	}
 	else
 	{
 		r = dwae_tick(e);
 		if (r != 0)
 		{
-			printf("wa_env_tick failed %ld\n", r);
+			printf("dwae_tick failed %ld\n", r);
 		}
 		dwae_deinit(e);
 	}
