@@ -1787,7 +1787,7 @@ long drekkar_wa_setup_function_call(const drekkar_wa_prog *p, drekkar_wa_data *d
 	const drekkar_wa_func_type_type *type = drekkar_get_func_type_ptr(p, func->func_type_idx);
 	assert(type);
 	if (STACK_SIZE(d) < type->nof_parameters) {return DREKKAR_WA_INSUFFICIENT_PARRAMETERS_FOR_CALL;}
-	const drekkar_stack_pointer_type expected_sp_after_call = d->sp - type->nof_parameters;
+	const drekkar_stack_pointer_type expected_sp_after_call = d->sp - type->nof_parameters; // not counting results here
 
 	// Some data to save until returning.
 	drekkar_block_stack_entry *block = (drekkar_block_stack_entry*) drekkar_linear_storage_size_push(&d->block_stack);
@@ -1822,7 +1822,6 @@ static long call_imported_function(const drekkar_wa_prog *p, drekkar_wa_data *d,
 	assert(type);
 	if (STACK_SIZE(d) < type->nof_parameters) {return DREKKAR_WA_INSUFFICIENT_PARRAMETERS_FOR_CALL;}
 	const drekkar_stack_pointer_type expected_sp_after_call = d->sp - type->nof_parameters;
-	const long expected_sp = d->sp + type->nof_results - type->nof_parameters;
 	drekkar_stack_pointer_type saved_frame_pointer = d->fp;
 	d->fp = expected_sp_after_call + DREKKAR_SP_OFFSET;
 
@@ -1835,11 +1834,11 @@ static long call_imported_function(const drekkar_wa_prog *p, drekkar_wa_data *d,
 	{
 		return DREKKAR_WA_EXCEPTION_FROM_IMPORTED_FUNCTION;
 	}
-	else if (expected_sp != d->sp)
+	else if (d->sp != expected_sp_after_call + type->nof_results)
 	{
 		char tmp[256];
 		func_type_to_string(tmp, sizeof(tmp), type);
-		snprintf(d->exception, sizeof(d->exception), "Unexpected nof parameters and/or arguments, %d != %d, %s.", (int) expected_sp, (int) d->sp, tmp);
+		snprintf(d->exception, sizeof(d->exception), "Unexpected nof parameters and/or arguments, %d != %d + %d, %s.", (int) d->sp, (int) expected_sp_after_call, type->nof_results, tmp);
 		return DREKKAR_WA_EXTERNAL_STACK_MISMATCH;
 	}
 

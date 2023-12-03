@@ -681,6 +681,10 @@ struct drekkar_wa_data
 	uint64_t temp_value;
 	long gas_meter;
 
+	// Typically errno is set if there was a fail from syscalls.
+	// This can be removed if no syscalls will be used.
+	uint32_t errno_location;
+
 	char exception[256]; // If an error happens, additional info might be written here.
 };
 

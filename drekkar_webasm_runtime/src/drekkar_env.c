@@ -31,14 +31,15 @@ Created October 2023 by Henrik
 #include <ctype.h>
 #include <assert.h>
 #include <unistd.h>
+#include <fcntl.h>
+#include <errno.h>
 #include <sys/types.h>
+#include <sys/stat.h>
+#include <sys/ioctl.h>
 #ifdef __EMSCRIPTEN__
 #include <wasi/api.h>
 #include <wasi/wasi-helpers.h>
-#else
-#include <sys/stat.h>
 #endif
-
 
 #include "drekkar_core.h"
 #include "drekkar_env.h"
@@ -256,34 +257,35 @@ static void drekkar_wart_version(drekkar_wa_data *d)
 
 // 'env/__syscall_open' param i32 i32 i32, result i32'
 //  (import "env" "__syscall_open" (func $fimport$2 (param i32 i32 i32) (result i32)))
-// int __syscall_openat(int dirfd, intptr_t path, int flags, ...); // mode is optional
+// https://man7.org/linux/man-pages/man2/open.2.html
 // Remember last argument pops up first.
 static void syscall_open(drekkar_wa_data *d)
 {
-	// TODO How do we know there is not more than 3 arguments? That is "..." part.
 	const int nof_results = 1;
 	int nof_parameters_given = nof_parameters_on_stack(d) + nof_results;
-
-	printf("stack %d %d %d\n", d->fp, d->sp, nof_parameters_given);
-
-	if (nof_parameters_given>3)
+	if (nof_parameters_given < 3)
 	{
-		drekkar_wa_pop_value_i64(d);
+		snprintf(d->exception, sizeof(d->exception), "Wrong number of parameters");
+	}
+	else if (nof_parameters_given>3)
+	{
+		d->sp -= nof_parameters_given - 3;
 	}
 
-	uint32_t flags = drekkar_wa_pop_value_i64(d);
-	const char* path = drekkar_wa_translate_to_host_addr_space(d, drekkar_wa_pop_value_i64(d), 256);
-	uint32_t dirfd = drekkar_wa_pop_value_i64(d);
+	mode_t *mode = drekkar_wa_translate_to_host_addr_space(d, drekkar_wa_pop_value_i64(d), sizeof(mode_t));
+	int* flags = (int*)drekkar_wa_translate_to_host_addr_space(d, drekkar_wa_pop_value_i64(d), 4);
+	const char* pathname = drekkar_wa_translate_to_host_addr_space(d, drekkar_wa_pop_value_i64(d), 256);
 
-	printf("__syscall_open %d '%s' %d\n", flags, path, dirfd);
 
 	// TODO
-	snprintf(d->exception, sizeof(d->exception), "Not implemented: env/__syscall_open %d '%s' %d", flags, path, dirfd);
+	//snprintf(d->exception, sizeof(d->exception), "Not implemented: env/__syscall_open '%s' %d\n", pathname, *flags);
 
 
-	//int r = fopen();
+	int r = open(pathname, *flags, *mode);
 
-	drekkar_wa_push_value_i64(d, 0);
+	printf("syscall_open '%s' %d  %d\n", pathname, *flags, r);
+
+	drekkar_wa_push_value_i64(d, r);
 }
 
 
@@ -300,17 +302,41 @@ static void syscall_fcntl64(drekkar_wa_data *d)
 	drekkar_wa_push_value_i64(d, 0);
 }
 
+// int ioctl(int fd, unsigned long request, ...);
 // 'env/__syscall_ioctl' param i32 i32 i32, result i32'
 static void syscall_ioctl(drekkar_wa_data *d)
 {
-	uint32_t p2 = drekkar_wa_pop_value_i64(d);
-	uint32_t p1 = drekkar_wa_pop_value_i64(d);
-	uint32_t p0 = drekkar_wa_pop_value_i64(d);
+	const int nof_results = 1;
+	int nof_parameters_given = nof_parameters_on_stack(d) + nof_results;
+	if (nof_parameters_given < 3)
+	{
+		snprintf(d->exception, sizeof(d->exception), "Wrong number of parameters");
+	}
+	else if (nof_parameters_given>3)
+	{
+		printf("syscall_ioctl nof_parameters_given %d\n", nof_parameters_given);
+		d->sp -= (nof_parameters_given - 3);
+	}
 
-	// TODO
-	snprintf(d->exception, sizeof(d->exception), "Not implemented: env/__syscall_ioctl");
 
-	drekkar_wa_push_value_i64(d, 0);
+	void* p2 = drekkar_wa_translate_to_host_addr_space(d, drekkar_wa_pop_value_i64(d), 4);
+	unsigned long request = drekkar_wa_pop_value_i64(d);
+	uint32_t fd = drekkar_wa_pop_value_i64(d);
+
+	int r = ioctl(fd, request, p2);
+    if (r<0)
+    {
+    	// Typically errno is set if there was a fail.
+    	int *e = (int *)drekkar_wa_translate_to_host_addr_space(d, d->errno_location, sizeof(int));
+    	*e = errno;
+    	printf("syscall_ioctl fail %d %ld  %d %d '%s'\n", fd, request, r, errno, strerror(errno));
+    }
+    else
+    {
+    	printf("syscall_ioctl ok %d %ld  %d\n", fd, request, r);
+    }
+
+	drekkar_wa_push_value_i64(d, r);
 }
 
 // 'wasi_snapshot_preview1/fd_read' param i32 i32 i32 i32, result i32'
@@ -378,6 +404,7 @@ static void syscall_fstat64(drekkar_wa_data *d)
 // 'env/__syscall_stat64' param i32 i32, result i32'
 // https://github.com/emscripten-core/emscripten/blob/main/system/lib/libc/musl/arch/emscripten/syscall_arch.h
 //     int __syscall_stat64(intptr_t path, intptr_t buf);
+// https://gist.github.com/mejedi/e0a5ee813c88effaa146ad6bd65fc482
 static void syscall_stat64(drekkar_wa_data *d)
 {
 	// Remember last argument pops up first.
@@ -388,11 +415,12 @@ static void syscall_stat64(drekkar_wa_data *d)
 	int r = stat(pathname, statbuf);
 
 	// Typically errno is set if there was a fail.
-	if (r)
-	{
-		// TODO Find and set errno.
-		// (export "__errno_location" (func $158))
-	}
+    if (r<0)
+    {
+    	// Typically errno is set if there was a fail.
+    	int *e = (int *)drekkar_wa_translate_to_host_addr_space(d, d->errno_location, sizeof(int));
+    	*e = errno;
+    }
 
 	printf("__syscall_stat64 %s %d\n", pathname, r);
 
@@ -623,6 +651,18 @@ static long call_and_run_exported_function(const drekkar_wa_prog *p, drekkar_wa_
 	return r;
 }
 
+static long call_errno(drekkar_wa_env_type *e)
+{
+	const drekkar_wa_function* f = drekkar_wa_find_exported_function(e->p, "__errno_location");
+	if (f != NULL)
+	{
+		long r  = drekkar_wa_call_exported_function(e->p, e->d, f->func_idx);
+		e->d->errno_location = drekkar_wa_pop_value_i64(e->d);
+		return r;
+	}
+	return DREKKAR_WA_OK;
+}
+
 static long call_ctors(const drekkar_wa_prog *p, drekkar_wa_data *d)
 {
 	const drekkar_wa_function* f = drekkar_wa_find_exported_function(p, "__wasm_call_ctors");
@@ -630,6 +670,7 @@ static long call_ctors(const drekkar_wa_prog *p, drekkar_wa_data *d)
 	{
 		return drekkar_wa_call_exported_function(p, d, f->func_idx);
 	}
+
 	return DREKKAR_WA_OK;
 }
 
@@ -649,7 +690,10 @@ static const drekkar_wa_function* find_main(const drekkar_wa_prog *p)
 static long find_and_call(drekkar_wa_env_type *e)
 {
 	// Do we need to call "__wasm_call_ctors" also?
-	long r = call_ctors(e->p, e->d);
+	long r = call_errno(e);
+	if (r) {return r;}
+
+	r = call_ctors(e->p, e->d);
 	if (r) {return r;}
 
 	const drekkar_wa_function *f;
