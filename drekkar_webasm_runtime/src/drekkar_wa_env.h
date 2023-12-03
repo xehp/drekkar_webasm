@@ -1,5 +1,7 @@
 /*
- * Drekkar WebAsm runtime environment
+ * drekkar_wa_env.h
+ *
+ * Drekkar WebAsm Environment (DWAE)
  * http://www.drekkar.com/
  * https://github.com/xehp/drekkar_webasm.git
  * Copyright (C) 2023 Henrik Bjorkman http://www.eit.se/hb
@@ -11,7 +13,7 @@
 #include <limits.h>
 //#include <ctype.h>
 
-#include "drekkar_core.h"
+#include "drekkar_wa_core.h"
 
 
 #define WASI_ESUCCESS        (UINT16_C(0))
@@ -95,24 +97,22 @@
 
 #define DREKKAR_MAX_ARGUMENTS 32
 
-typedef struct drekkar_wa_env_type drekkar_wa_env_type;
+typedef struct dwae_type dwac_env_type;
 
 
-struct drekkar_wa_env_type
+struct dwae_type
 {
 	char file_name[PATH_MAX];
 	FILE* log;
 	int argc;
 	const char* argv[DREKKAR_MAX_ARGUMENTS];
 	const char* function_name;
-	drekkar_linear_storage_8_type bytes;
-	drekkar_wa_prog *p;
-	drekkar_wa_data *d;
+	dwac_linear_storage_8_type bytes;
+	dwac_prog *p;
+	dwac_data *d;
 };
 
 
-
-//void* ewasi_find(const char* sym);
-long drekkar_wa_env_init(drekkar_wa_env_type *e);
-long drekkar_wa_env_tick(drekkar_wa_env_type *e);
-void drekkar_wa_env_deinit(drekkar_wa_env_type *);
+long dwae_init(dwac_env_type *e);
+long dwae_tick(dwac_env_type *e);
+void dwae_deinit(dwac_env_type *);

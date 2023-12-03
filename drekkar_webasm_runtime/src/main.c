@@ -23,7 +23,7 @@ functions are not implemented though.
 #include <limits.h>
 #include <string.h>
 #include <sys/stat.h>
-#include "drekkar_env.h"
+#include "drekkar_wa_env.h"
 
 
 
@@ -129,7 +129,7 @@ static int find_root_dir(const char* test_code_dir_name, char *actual_path, size
 #pragma GCC diagnostic pop
 
 
-static int test_drekkar_webasm_runtime(drekkar_wa_env_type *e)
+static int test_drekkar_webasm_runtime(dwac_env_type *e)
 {
 	if (e->file_name[0]==0)
 	{
@@ -143,26 +143,26 @@ static int test_drekkar_webasm_runtime(drekkar_wa_env_type *e)
 		#endif
 	}
 
-	long r = drekkar_wa_env_init(e);
+	long r = dwae_init(e);
 	if (r != 0)
 	{
 		printf("wa_env_init failed %ld\n", r);
 	}
 	else
 	{
-		r = drekkar_wa_env_tick(e);
+		r = dwae_tick(e);
 		if (r != 0)
 		{
 			printf("wa_env_tick failed %ld\n", r);
 		}
-		drekkar_wa_env_deinit(e);
+		dwae_deinit(e);
 	}
 	return 0;
 }
 
 int main(int argc, char** argv)
 {
-	drekkar_wa_env_type e = {0};
+	dwac_env_type e = {0};
 
 	e.argv[0] = argv[0];
 	e.argc = 1;
