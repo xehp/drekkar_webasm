@@ -59,38 +59,40 @@ But the ultimate reg test is to run an instance of itself running some web assem
 That almost work! Still it seems something is not 100% correct.
 
 This is the output:
+<file>
+
+	$> 
+	$> emcc drekkar_wa_core.c drekkar_wa_env.c main.c
+	main.c:100:32: warning: unknown warning group '-Wformat-truncation', ignored [-Wunknown-warning-option]
+	#pragma GCC diagnostic ignored "-Wformat-truncation"
+		                       ^
+	1 warning generated.
+	$> ../drekkar_webasm_runtime a.out.wasm --function_name test ~/git/drekkar_webasm/test_code/test.wasm 
+	syscall_open 502400 8002 501240
+	syscall_ioctl fail 3 21523 0x5413 -1 25 'Inappropriate ioctl for device'
+	log:
+	log: ''
+	log:
+	log: 11
+	log: 400
+	log: ''
+	log:
+	$> 
 
 
-$> 
-$> emcc drekkar_wa_core.c drekkar_wa_env.c main.c
-main.c:100:32: warning: unknown warning group '-Wformat-truncation', ignored [-Wunknown-warning-option]
-#pragma GCC diagnostic ignored "-Wformat-truncation"
-                               ^
-1 warning generated.
-$> ../drekkar_webasm_runtime a.out.wasm --function_name test ~/git/drekkar_webasm/test_code/test.wasm 
-syscall_open 502400 8002 501240
-syscall_ioctl fail 3 21523 0x5413 -1 25 'Inappropriate ioctl for device'
-log:
-log: ''
-log:
-log: 11
-log: 400
-log: ''
-log:
-$> 
 
+	Expected output (this is when it run the test file directly):
 
+	$> ../drekkar_webasm_runtime --function_name test ~/git/drekkar_webasm/test_code/test.wasm
+	log:
+	log: 'not zero'
+	log:
+	log: 11
+	log: 400
+	log: 'hello, world'
+	log:
+	$> 
 
-Expected output (this is when it run the test file directly):
+Perhaps the stack is missing an entry somewere.
 
-$> ../drekkar_webasm_runtime --function_name test ~/git/drekkar_webasm/test_code/test.wasm
-log:
-log: 'not zero'
-log:
-log: 11
-log: 400
-log: 'hello, world'
-log:
-$> 
-
-
+</file>
