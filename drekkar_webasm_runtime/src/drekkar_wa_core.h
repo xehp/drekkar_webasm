@@ -45,7 +45,7 @@
 //    PATCH version when you make backward compatible bug fixes
 // Warning! We do not follow this at early stages when major is 0.
 #define DREKKAR_VERSION_MAJOR 0
-#define DREKKAR_VERSION_MINOR 12
+#define DREKKAR_VERSION_MINOR 13
 #define DREKKAR_VERSION_PATCH 0
 
 
