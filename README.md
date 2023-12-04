@@ -59,7 +59,6 @@ But the ultimate reg test is to run an instance of itself running some web assem
 That almost work! Still it seems something is not 100% correct.
 
 This is the output:
-<file>
 
 	$> 
 	$> emcc drekkar_wa_core.c drekkar_wa_env.c main.c
@@ -81,7 +80,7 @@ This is the output:
 
 
 
-	Expected output (this is when it run the test file directly):
+Expected output (this is when it run the test file directly):
 
 	$> ../drekkar_webasm_runtime --function_name test ~/git/drekkar_webasm/test_code/test.wasm
 	log:
@@ -94,5 +93,3 @@ This is the output:
 	$> 
 
 Perhaps the stack is missing an entry somewere.
-
-</file>
