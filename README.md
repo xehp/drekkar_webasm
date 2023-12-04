@@ -52,37 +52,19 @@ https://github.com/xehp/drekkar_webasm.git<br>
 
 <hr>
 
+This is a runtime environment for generic code, so can it run itself?
 
-This project is almost production ready. It passes when running the tests made for it, such as 'reg_test.c'.
+That is the final reg test, this is the output:
 
-But the ultimate reg test is to run an instance of itself running some web assembly code. 
-That almost work! Still it seems something is not 100% correct.
-
-This is the output:
-
-	$> 
-	$> emcc drekkar_wa_core.c drekkar_wa_env.c main.c
+	henrik@aurora:~/git/drekkar_webasm$ cd drekkar_webasm_runtime/src/
+	henrik@aurora:~/git/drekkar_webasm/drekkar_webasm_runtime/src$ emcc drekkar_wa_core.c drekkar_wa_env.c main.c
 	main.c:100:32: warning: unknown warning group '-Wformat-truncation', ignored [-Wunknown-warning-option]
 	#pragma GCC diagnostic ignored "-Wformat-truncation"
-		                       ^
+	                               ^
 	1 warning generated.
-	$> ../drekkar_webasm_runtime a.out.wasm --function_name test ~/git/drekkar_webasm/test_code/test.wasm 
+	henrik@aurora:~/git/drekkar_webasm/drekkar_webasm_runtime/src$ ../drekkar_webasm_runtime a.out.wasm --function_name test ~/git/drekkar_webasm/test_code/test.wasm
 	syscall_open 502400 8002 501240
 	syscall_ioctl fail 3 21523 0x5413 -1 25 'Inappropriate ioctl for device'
-	log:
-	log: ''
-	log:
-	log: 11
-	log: 400
-	log: ''
-	log:
-	$> 
-
-
-
-Expected output (this is when it run the test file directly):
-
-	$> ../drekkar_webasm_runtime --function_name test ~/git/drekkar_webasm/test_code/test.wasm
 	log:
 	log: 'not zero'
 	log:
@@ -90,6 +72,8 @@ Expected output (this is when it run the test file directly):
 	log: 400
 	log: 'hello, world'
 	log:
-	$> 
+	henrik@aurora:~/git/drekkar_webasm/drekkar_webasm_runtime/src$ 
 
-Perhaps the stack is missing an entry somewere.
+Some warnings but ignoring those, it looks like YES!
+
+
