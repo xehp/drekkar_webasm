@@ -45,7 +45,7 @@
 //    PATCH version when you make backward compatible bug fixes
 // Warning! We do not follow this at early stages when major is 0.
 #define DREKKAR_VERSION_MAJOR 0
-#define DREKKAR_VERSION_MINOR 10
+#define DREKKAR_VERSION_MINOR 11
 #define DREKKAR_VERSION_PATCH 0
 
 
@@ -473,6 +473,9 @@ enum {
 	DWAC_BRANCH_ADDR_OUT_OF_RANGE,
 	DWAC_PC_ADDR_OUT_OF_RANGE,
 	DWAC_ADDR_OUT_OF_RANGE,
+	DWAC_TABLE_INSTRUCTIONS_NOT_SUPPORTED,
+	DWAC_EXTEND_NOT_SUPPORTED_YET,
+	DWAC_SATURATING_NOT_SUPPORTED_YET,
 };
 
 typedef struct dwac_data dwac_data;

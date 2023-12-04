@@ -2421,6 +2421,10 @@ long dwac_tick(const dwac_prog *p, dwac_data *d)
 				break;
 			}
 
+			case 0x25:
+			case 0x26:
+				sprintf(d->exception, "0x%x", opcode);
+				return DWAC_TABLE_INSTRUCTIONS_NOT_SUPPORTED;
 
 			case 0x28: // i32.load
 			{
@@ -2467,7 +2471,7 @@ long dwac_tick(const dwac_prog *p, dwac_data *d)
 				/*const uint32_t flags =*/ leb_read(&d->pc, 32);
 				const uint32_t offset = leb_read(&d->pc, 32);
 				const uint32_t addr = POP_U32(d);
-				int32_t value = translate_get_int8(d, offset + addr);
+				const int8_t value = translate_get_int8(d, offset + addr);
 				PUSH_I32(d, value);
 				D("i32.load8_s 0x%x\n", TOP_U32(d));
 				break;
@@ -2477,7 +2481,7 @@ long dwac_tick(const dwac_prog *p, dwac_data *d)
 				/*const uint32_t flags =*/ leb_read(&d->pc, 32);
 				const uint32_t offset = leb_read(&d->pc, 32);
 				const uint32_t addr = POP_U32(d);
-				uint32_t value = (uint8_t)translate_get_int8(d, offset + addr);
+				const uint8_t value = translate_get_int8(d, offset + addr);
 				PUSH_U32(d, value);
 				D("i32.load8_u 0x%x\n", TOP_U32(d));
 				break;
@@ -2487,7 +2491,7 @@ long dwac_tick(const dwac_prog *p, dwac_data *d)
 				/*const uint32_t flags =*/ leb_read(&d->pc, 32);
 				const uint32_t offset = leb_read(&d->pc, 32);
 				const uint32_t addr = POP_U32(d);
-				int32_t value = translate_get_int16(d, offset + addr);
+				const int16_t value = translate_get_int16(d, offset + addr);
 				PUSH_I32(d, value);
 				D("i32.load16_s 0x%x\n", TOP_U32(d));
 				break;
@@ -2497,7 +2501,7 @@ long dwac_tick(const dwac_prog *p, dwac_data *d)
 				/*const uint32_t flags =*/ leb_read(&d->pc, 32);
 				const uint32_t offset = leb_read(&d->pc, 32);
 				const uint32_t addr = POP_U32(d);
-				uint32_t value = (uint16_t)translate_get_int16(d, offset + addr);
+				const uint16_t value = translate_get_int16(d, offset + addr);
 				PUSH_U32(d, value);
 				D("i32.load16_u 0x%x\n", TOP_U32(d));
 				break;
@@ -2507,7 +2511,7 @@ long dwac_tick(const dwac_prog *p, dwac_data *d)
 				/*const uint32_t flags =*/ leb_read(&d->pc, 32);
 				const uint32_t offset = leb_read(&d->pc, 32);
 				const uint32_t addr = POP_U32(d);
-				int64_t value = translate_get_int8(d, offset + addr);
+				const int8_t value = translate_get_int8(d, offset + addr);
 				PUSH_I64(d, value);
 				D("i64.load8_s 0x%llx\n", (long unsigned long)TOP_U64(d));
 				break;
@@ -2517,7 +2521,7 @@ long dwac_tick(const dwac_prog *p, dwac_data *d)
 				/*const uint32_t flags =*/ leb_read(&d->pc, 32);
 				const uint32_t offset = leb_read(&d->pc, 32);
 				const uint32_t addr = POP_U32(d);
-				uint64_t value = (uint8_t)translate_get_int8(d, offset + addr);
+				const uint8_t value = translate_get_int8(d, offset + addr);
 				PUSH_U64(d, value);
 				D("i64.load8_u 0x%llx\n", (long unsigned long)TOP_U64(d));
 				break;
@@ -2527,7 +2531,7 @@ long dwac_tick(const dwac_prog *p, dwac_data *d)
 				/*const uint32_t flags =*/ leb_read(&d->pc, 32);
 				const uint32_t offset = leb_read(&d->pc, 32);
 				const uint32_t addr = POP_U32(d);
-				int64_t value = translate_get_int16(d, offset + addr);
+				const int16_t value = translate_get_int16(d, offset + addr);
 				PUSH_I64(d, value);
 				D("i64.load16_s 0x%llx\n", (long unsigned long)TOP_U64(d));
 				break;
@@ -2537,7 +2541,7 @@ long dwac_tick(const dwac_prog *p, dwac_data *d)
 				/*const uint32_t flags =*/ leb_read(&d->pc, 32);
 				const uint32_t offset = leb_read(&d->pc, 32);
 				const uint32_t addr = POP_U32(d);
-				uint64_t value = (uint16_t)translate_get_int16(d, offset + addr);
+				const uint16_t value = translate_get_int16(d, offset + addr);
 				PUSH_U64(d, value);
 				D("i64.load16_u 0x%llx\n", (long unsigned long)TOP_U64(d));
 				break;
@@ -2547,7 +2551,7 @@ long dwac_tick(const dwac_prog *p, dwac_data *d)
 				/*const uint32_t flags =*/ leb_read(&d->pc, 32);
 				const uint32_t offset = leb_read(&d->pc, 32);
 				const uint32_t addr = POP_U32(d);
-				int64_t value = translate_get_int32(d, offset + addr);
+				const int32_t value = translate_get_int32(d, offset + addr);
 				PUSH_I64(d, value);
 				D("i64.load32_s 0x%llx\n", (long unsigned long)TOP_U64(d));
 				break;
@@ -2557,7 +2561,7 @@ long dwac_tick(const dwac_prog *p, dwac_data *d)
 				/*const uint32_t flags =*/ leb_read(&d->pc, 32);
 				const uint32_t offset = leb_read(&d->pc, 32);
 				const uint32_t addr = POP_U32(d);
-				uint64_t value = (uint32_t)translate_get_int32(d, offset + addr);
+				const uint32_t value = translate_get_int32(d, offset + addr);
 				PUSH_U64(d, value);
 				D("i64.load32_u 0x%llx\n", (long unsigned long)TOP_U64(d));
 				break;
@@ -2628,7 +2632,7 @@ long dwac_tick(const dwac_prog *p, dwac_data *d)
 		    {
 				/*const uint32_t flags =*/ leb_read(&d->pc, 32);
 				const uint32_t offset = leb_read(&d->pc, 32);
-				const int64_t value = POP_I64(d);
+				const int8_t value = POP_I32(d);
 				const uint32_t addr = POP_U32(d);
 				translate_set_int8(d, offset + addr, value);
 				D("i64.store8 0x%x 0x%llx 0x%x\n", offset, (long long unsigned)value, addr);
@@ -2638,7 +2642,7 @@ long dwac_tick(const dwac_prog *p, dwac_data *d)
 		    {
 				/*const uint32_t flags =*/ leb_read(&d->pc, 32);
 				const uint32_t offset = leb_read(&d->pc, 32);
-				const int32_t value = POP_I32(d);
+				const int16_t value = POP_I32(d);
 				const uint32_t addr = POP_U32(d);
 				translate_set_int16(d, offset + addr, value);
 				D("i32.store16 0x%x 0x%llx 0x%x\n", offset, (long long unsigned)value, addr);
@@ -2648,13 +2652,12 @@ long dwac_tick(const dwac_prog *p, dwac_data *d)
 		    {
 				/*const uint32_t flags =*/ leb_read(&d->pc, 32);
 				const uint32_t offset = leb_read(&d->pc, 32);
-				const int64_t value = POP_I64(d);
-				const uint32_t addr = POP_U32(d);
-				translate_set_int64(d, offset + addr, value);
+				const int32_t value = POP_I64(d);
+				const int32_t addr = POP_I32(d);
+				translate_set_int32(d, offset + addr, value); // Or shall it be translate_set_int64?
 				D("i64.store32 0x%x 0x%llx 0x%x\n", offset, (long long unsigned)value, addr);
 				break;
 		    }
-
 
 			case 0x3f: // current_memory
 			{
@@ -3772,10 +3775,20 @@ long dwac_tick(const dwac_prog *p, dwac_data *d)
 				break;
 			}
 			#endif
+			case 0xc0: // i32.extend8_s
+			case 0xc1: // i32.extend16_s
+			case 0xc2: // i64.extend8_s
+			case 0xc3: // i64.extend16_s
+			case 0xc4: // i64.extend32_s
+				// TODO
+				return DWAC_EXTEND_NOT_SUPPORTED_YET;
 			case 0xfc: // memory.init. data.drop, memory.copy, memory.fill
+				// 5.4.7. Numeric Instructions
+				// The saturating truncation instructions all have a one byte prefix,
+				// whereas the actual opcode is encoded by a variable-length unsigned integer.
 				leb_read(&d->pc, 32);
 				// TODO
-				return DWAC_FEATURE_NOT_SUPPORTED_YET;
+				return DWAC_SATURATING_NOT_SUPPORTED_YET;
 			case 0xfd:
 			{
 				// [1] 5.4.8. Vector Instructions
