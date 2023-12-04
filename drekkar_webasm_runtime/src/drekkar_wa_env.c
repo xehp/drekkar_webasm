@@ -130,20 +130,8 @@ static void wa_fd_write(dwac_data *d)
 		//printf(" <v->buf_len %d> ", v->buf_len);
 		const uint8_t* ptr = (uint8_t*)dwac_translate_to_host_addr_space(d, v->buf, v->buf_len);
 
-		/*if (v->buf_len > 0x10000)
-		{
-			snprintf(d->exception, sizeof(d->exception), "fd_write: To long 0x%x.", v->buf_len);
-			uint32_t buf_len = 16;
-			char buf[0x4000];
-			wa_hex(buf, sizeof(buf), ptr, buf_len);
-			printf("%s\n", buf);
-			n += buf_len;
-		}
-		else*/
-		{
-			write(fd, ptr, v->buf_len);
-			n += v->buf_len;
-		}
+		write(fd, ptr, v->buf_len);
+		n += v->buf_len;
 	}
 
 	*nwritten_offset_ptr = n;
@@ -152,7 +140,6 @@ static void wa_fd_write(dwac_data *d)
 	dwac_push_value_i64(d, WASI_ESUCCESS);
 }
 
-// Not tested.
 // void memcpy_big(uint32_t dest, uint32_t src, uint32_t num);
 // (import "env" "emscripten_memcpy_big" (func $fimport$1 (param i32 i32 i32) (result i32)))
 static void memcpy_big(dwac_data *d)
@@ -227,33 +214,28 @@ void wa_args_sizes_get(Module *m)
 #endif
 
 
-// Test function, remove later.
+// Test functions, remove later.
 static void test_log_i64(dwac_data *d)
 {
 	uint64_t n = dwac_pop_value_i64(d);
 	printf("log: %lld\n", (long long)n);
 }
-
 static void test_log_hex(dwac_data *d)
 {
 	uint64_t n = dwac_pop_value_i64(d);
 	printf("log: %llx\n", (long long)n);
 }
-
 static void test_log_ch(dwac_data *d)
 {
 	uint64_t n = dwac_pop_value_i64(d);
 	printf("log: %c\n", (int)n);
 }
-
-// Test function, remove later.
 static void test_log_str(dwac_data *d)
 {
 	uint64_t a = dwac_pop_value_i64(d);
 	const uint8_t* ptr = (uint8_t*)dwac_translate_to_host_addr_space(d, a, 1);
 	printf("log: '%s'\n", ptr);
 }
-
 static void log_empty_line(dwac_data *d)
 {
 	printf("log:\n");
@@ -283,7 +265,6 @@ static void drekkar_wart_version(dwac_data *d)
 	dwac_push_value_i64(d, v);
 }
 
-// Not tested.
 // 'env/__syscall_open' param i32 i32 i32, result i32'
 //  (import "env" "__syscall_open" (func $fimport$2 (param i32 i32 i32) (result i32)))
 // https://man7.org/linux/man-pages/man2/open.2.html
@@ -383,7 +364,6 @@ static void syscall_ioctl(dwac_data *d)
 	dwac_push_value_i64(d, r);
 }
 
-// Not tested.
 // 'wasi_snapshot_preview1/fd_read' param i32 i32 i32 i32, result i32'
 //
 // https://wasix.org/docs/api-reference/wasi/fd_read
@@ -394,9 +374,12 @@ static void syscall_ioctl(dwac_data *d)
 // position. This can be useful in scenarios where applications
 // need to read data from a specific location in a file without
 // altering the cursor's state.
-// TODO OMG! Why change everything all the time. And what do we
+//
+// OMG! Why change everything all the time? And what do we
 // need to do about it? Where then is file cursor updated?
-// Is it the ioctl TIOCGWINSZ that failed for us?
+//
+// The implementation below is not as described above but is
+// tested using emscripten.
 static void fd_read(dwac_data *d)
 {
 	long n = 0;
@@ -454,14 +437,13 @@ static void fd_read(dwac_data *d)
 	dwac_push_value_i64(d, WASI_ESUCCESS);
 }
 
-// Not tested.
 // 'wasi_snapshot_preview1/fd_close' param i32, result i32'
 //  (import "wasi_snapshot_preview1" "fd_close" (func $fimport$7 (param i32) (result i32)))
 static void fd_close(dwac_data *d)
 {
 	uint32_t fd = dwac_pop_value_i64(d);
 
-	assert(fd ==3);
+	assert(fd ==3); // TODO
 	D("fd_close %d\n", fd);
 	close(fd);
 
@@ -588,10 +570,12 @@ static void fd_seek(dwac_data *d)
 static void register_functions(dwac_prog *p)
 {
 	D("register_functions\n");
+
 	dwac_register_function(p, "wasi_snapshot_preview1/fd_write", wa_fd_write);
 	dwac_register_function(p, "wasi_snapshot_preview1/fd_read", fd_read);
 	dwac_register_function(p, "wasi_snapshot_preview1/fd_close", fd_close);
 	dwac_register_function(p, "wasi_snapshot_preview1/fd_seek", fd_seek);
+
 	dwac_register_function(p, "env/__assert_fail", assert_fail);
 	dwac_register_function(p, "env/emscripten_memcpy_big", memcpy_big);
 	dwac_register_function(p, "env/emscripten_resize_heap", emscripten_resize_heap);
@@ -654,7 +638,7 @@ static long set_command_line_arguments(dwac_env_type *e)
 
 	if (e->function_name)
 	{
-		// Push all arguments to stack as numbers.
+		// Not the C main function so push all arguments to stack as numbers.
 		for(int i = 0; i < e->argc; i++)
 		{
 			int64_t n = atoll(e->argv[i]);

@@ -2258,6 +2258,7 @@ long dwac_tick(const dwac_prog *p, dwac_data *d)
 			}
 			case 0x10: // call
 			{
+				// 0x10 x:funcidx
 				const uint32_t function_idx = leb_read(&d->pc, 32);
 				D("call %u\n", function_idx);
 
@@ -2287,11 +2288,14 @@ long dwac_tick(const dwac_prog *p, dwac_data *d)
 				// [2] 4.4.8.11. call_indirect x y
 				// [2] call_indirect calls a function in a table.
 				// Indirect call, the function to call is taken via table.
-				// call_indirect tableidx typeidx​
+				// call_indirect tableidx typeidx
+				//
+				// [1] 5.4.1 Control Instructions
+				// 0x11 y:typeidx x:tableidx
 
 				const uint32_t typeidx = leb_read(&d->pc, 32);
 
-				uint32_t tableidx = leb_read(&d->pc, 32);
+				const uint32_t tableidx = leb_read(&d->pc, 32);
 				if (tableidx != 0) {return DWAC_ONLY_ONE_TABLE_IS_SUPPORTED;}
 
 				// Get index into table from stack.
@@ -2421,9 +2425,14 @@ long dwac_tick(const dwac_prog *p, dwac_data *d)
 				break;
 			}
 
-			case 0x25:
-			case 0x26:
-				sprintf(d->exception, "0x%x", opcode);
+			case 0x25: // table.get
+			case 0x26: // table.set
+				// Remember that if func_table can be changed (table.set is implemented) then
+				// func_table shall be part of dwac_data and not part of dwac_prog structs.
+				// So will not implement this for now.
+				// See also 0xFC codes 12 .. 17.
+				//const uint32_t tableidx = leb_read(&d->pc, 32);
+				//sprintf(d->exception, "0x%x 0x%x", opcode, tableidx);
 				return DWAC_TABLE_INSTRUCTIONS_NOT_SUPPORTED;
 
 			case 0x28: // i32.load
@@ -2654,7 +2663,7 @@ long dwac_tick(const dwac_prog *p, dwac_data *d)
 				const uint32_t offset = leb_read(&d->pc, 32);
 				const int32_t value = POP_I64(d);
 				const int32_t addr = POP_I32(d);
-				translate_set_int32(d, offset + addr, value); // Or shall it be translate_set_int64?
+				translate_set_int32(d, offset + addr, value);
 				D("i64.store32 0x%x 0x%llx 0x%x\n", offset, (long long unsigned)value, addr);
 				break;
 		    }
@@ -3775,20 +3784,49 @@ long dwac_tick(const dwac_prog *p, dwac_data *d)
 				break;
 			}
 			#endif
+			#if 1
+			// https://github.com/WebAssembly/sign-extension-ops/blob/master/proposals/sign-extension-ops/Overview.md
 			case 0xc0: // i32.extend8_s
+			{ // not tested
+				int8_t a = TOP_I32(d);
+				SET_I32(d, a);
+				break;
+			}
 			case 0xc1: // i32.extend16_s
+			{ // not tested
+				int16_t a = TOP_I32(d);
+				SET_I32(d, a);
+				break;
+			}
 			case 0xc2: // i64.extend8_s
+			{ // not tested
+				int8_t a = TOP_I64(d);
+				SET_I64(d, a);
+				break;
+			}
 			case 0xc3: // i64.extend16_s
+			{ // not tested
+				int16_t a = TOP_I64(d);
+				SET_I64(d, a);
+				break;
+			}
 			case 0xc4: // i64.extend32_s
-				// TODO
-				return DWAC_EXTEND_NOT_SUPPORTED_YET;
+			{ // not tested
+				int32_t a = TOP_I64(d);
+				SET_I64(d, a);
+				break;
+			}
+			#endif
 			case 0xfc: // memory.init. data.drop, memory.copy, memory.fill
+			{
 				// 5.4.7. Numeric Instructions
 				// The saturating truncation instructions all have a one byte prefix,
 				// whereas the actual opcode is encoded by a variable-length unsigned integer.
-				leb_read(&d->pc, 32);
+				const uint32_t actual_opcode = leb_read(&d->pc, 32);
+				sprintf(d->exception, "0x%x", actual_opcode);
 				// TODO
 				return DWAC_SATURATING_NOT_SUPPORTED_YET;
+			}
 			case 0xfd:
 			{
 				// [1] 5.4.8. Vector Instructions

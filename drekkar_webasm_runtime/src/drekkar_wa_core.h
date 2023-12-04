@@ -45,7 +45,7 @@
 //    PATCH version when you make backward compatible bug fixes
 // Warning! We do not follow this at early stages when major is 0.
 #define DREKKAR_VERSION_MAJOR 0
-#define DREKKAR_VERSION_MINOR 11
+#define DREKKAR_VERSION_MINOR 12
 #define DREKKAR_VERSION_PATCH 0
 
 
@@ -474,7 +474,6 @@ enum {
 	DWAC_PC_ADDR_OUT_OF_RANGE,
 	DWAC_ADDR_OUT_OF_RANGE,
 	DWAC_TABLE_INSTRUCTIONS_NOT_SUPPORTED,
-	DWAC_EXTEND_NOT_SUPPORTED_YET,
 	DWAC_SATURATING_NOT_SUPPORTED_YET,
 };
 
@@ -649,6 +648,8 @@ typedef struct dwac_prog
 	//   A WebAssembly.Table object is a resizable typed array of opaque values,
 	//   like function references, that are accessed by an Instance.
 	// TODO Seems 32 bits is enough. ref [3] use 32 bits table.
+	// TODO func_table shall be moved to dwac_data since it can be changed
+	// by a running program, see not yet implemented instruction table.set.
 	dwac_linear_storage_64_type func_table;
 } dwac_prog;
 
