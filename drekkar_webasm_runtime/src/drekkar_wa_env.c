@@ -461,18 +461,23 @@ static void syscall_getcwd(dwac_data *d)
 
 // Not tested.
 // 'env/__syscall_readlink' param i32 i32 i32, result i32'
+// ssize_t readlink(const char *restrict pathname, char *restrict buf, size_t bufsiz);
 static void syscall_readlink(dwac_data *d)
 {
 	if (!is_param_ok(d, 3)) {return;}
 
-	uint32_t p2 = dwac_pop_value_i64(d);
-	uint32_t p1 = dwac_pop_value_i64(d);
-	uint32_t p0 = dwac_pop_value_i64(d);
+	uint32_t bufsiz = dwac_pop_value_i64(d);
+	uint32_t buf = dwac_pop_value_i64(d);
+	uint32_t pathname = dwac_pop_value_i64(d);
 
-	// TODO
-	snprintf(d->exception, sizeof(d->exception), "Not implemented: env/__syscall_readlink");
+	const char* pathname_ptr = dwac_translate_to_host_addr_space(d, pathname, 1);
+	char* buf_ptr = dwac_translate_to_host_addr_space(d, buf, bufsiz);
 
-	dwac_push_value_i64(d, 0);
+	ssize_t r = readlink(pathname_ptr, buf_ptr, bufsiz);
+
+	D("env/__syscall_readlink '%s' %zd %u '%s'\n", pathname_ptr, r, bufsiz, buf_ptr);
+
+	dwac_push_value_i64(d, r);
 }
 
 // Not tested.
@@ -490,31 +495,80 @@ static void syscall_fstat64(dwac_data *d)
 	dwac_push_value_i64(d, 0);
 }
 
+#if 0
+// https://linux.die.net/man/2/getdents64
+struct linux_dirent {
+    unsigned long  d_ino;     /* Inode number */
+    unsigned long  d_off;     /* Offset to next linux_dirent */
+    unsigned short d_reclen;  /* Length of this linux_dirent */
+    char           d_name[];  /* Filename (null-terminated) */
+                        /* length is actually (d_reclen - 2 -
+                           offsetof(struct linux_dirent, d_name) */
+    /*
+    char           pad;       // Zero padding byte
+    char           d_type;    // File type (only since Linux 2.6.4;
+                              // offset is (d_reclen - 1))
+    */
+
+};
+#endif
+
+
+struct guest_stat {
+    uint32_t st_dev;
+    uint32_t padding;
+    uint32_t st_ino;
+    uint32_t st_mode;
+};
+
 // Not tested.
 // 'env/__syscall_stat64' param i32 i32, result i32'
 // https://github.com/emscripten-core/emscripten/blob/main/system/lib/libc/musl/arch/emscripten/syscall_arch.h
 //     int __syscall_stat64(intptr_t path, intptr_t buf);
 // https://gist.github.com/mejedi/e0a5ee813c88effaa146ad6bd65fc482
+// When I was experimenting here it turned out someone else was also at same time:
+// https://github.com/emscripten-core/emscripten/issues/20840
 static void syscall_stat64(dwac_data *d)
 {
 	if (!is_param_ok(d, 2)) {return;}
 
-	// Remember last argument pops up first.
-	struct stat *statbuf = (struct stat*)dwac_translate_to_host_addr_space(d, dwac_pop_value_i64(d), sizeof(struct stat));
+    #ifdef __EMSCRIPTEN__
+
+	// Unable to use system calls
+	// https://github.com/emscripten-core/emscripten/issues/6708
+	const char* pathname = (const char*)dwac_translate_to_host_addr_space(d, dwac_pop_value_i64(d), 1);
+	snprintf(d->exception, sizeof(d->exception), "Not implemented: env/__syscall_stat64 '%s'", pathname);
+	int r = -1;
+
+	#elif 1
+
+	struct guest_stat *statbuf = (struct guest_stat *)dwac_translate_to_host_addr_space(d, dwac_pop_value_i64(d), sizeof(struct guest_stat));
 	const char* pathname = (const char*)dwac_translate_to_host_addr_space(d, dwac_pop_value_i64(d), 256);
 
-	// This is not tested!
-	int r = stat(pathname, statbuf);
+	struct stat sb;
+	int r = stat(pathname, &sb);
+	statbuf->st_dev = sb.st_dev;
+	statbuf->st_ino = sb.st_ino;
+	statbuf->st_mode = sb.st_mode;
+	printf("stat '%s' %d %x %llx  %p %p  %p %p\n", pathname, r, sb.st_mode, (long long)statbuf->st_mode, &sb, &sb.st_mode, statbuf, &statbuf->st_mode);
+
+    #else
+
+	struct linux_dirent* statbuf = dwac_translate_to_host_addr_space(d, dwac_pop_value_i64(d), sizeof(struct linux_dirent));
+	const char* pathname = (const char*)dwac_translate_to_host_addr_space(d, dwac_pop_value_i64(d), 1);
+
+	//uint32_t r = syscall(SYS_getdents64, pathname, statbuf);
+	uint32_t r = getdents64(pathname, statbuf);
+
+    #endif
 
 	// Typically errno is set if there was a fail.
-    if (r<0)
-    {
-    	// Typically errno is set if there was a fail.
-    	int *e = (int *)dwac_translate_to_host_addr_space(d, d->errno_location, sizeof(int));
-    	*e = errno;
-    }
-
-	printf("__syscall_stat64 %s %d\n", pathname, r);
+	if (r<0)
+	{
+		// Typically errno is set if there was a fail.
+		int *e = (int *)dwac_translate_to_host_addr_space(d, d->errno_location, sizeof(int));
+		*e = errno;
+	}
 
 	dwac_push_value_i64(d, r);
 }
@@ -622,7 +676,6 @@ static void register_functions(dwac_prog *p)
 	dwac_register_function(p, "env/__syscall_fstat64", syscall_fstat64);
 	dwac_register_function(p, "env/__syscall_stat64", syscall_stat64);
 	dwac_register_function(p, "env/__syscall_fstatat64", syscall_fstatat64);
-	dwac_register_function(p, "env/__syscall_stat64", syscall_stat64);
 	dwac_register_function(p, "env/__syscall_lstat64", syscall_lstat64);
 	#ifndef __EMSCRIPTEN__
 	dwac_register_function(p, "env/__syscall_getdents64", syscall_getdents64);

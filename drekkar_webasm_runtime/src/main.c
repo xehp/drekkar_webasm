@@ -23,7 +23,13 @@ functions are not implemented though.
 #include <limits.h>
 #include <string.h>
 #include <sys/stat.h>
+//#include <unistd.h>
 #include "drekkar_wa_env.h"
+
+//#ifdef __EMSCRIPTEN__
+//#include <wasi/api.h>
+//#include <wasi/wasi-helpers.h>
+//#endif
 
 
 
@@ -33,7 +39,7 @@ static int does_folder_exist(const char* pathname)
 	struct stat sb;
 	if (stat(pathname, &sb) == 0 && S_ISDIR(sb.st_mode))
 	{
-	    return 1;
+		return 1;
 	}
 	return 0;
 }
@@ -112,9 +118,12 @@ static int find_root_dir(const char* test_code_dir_name, char *actual_path, size
 		{
 			// https://stackoverflow.com/questions/229012/getting-absolute-path-of-a-file
 			assert(actual_path_size >= PATH_MAX);
-			const char *ptr = realpath(publicPathAndName, actual_path);
-			//printf("Relative: '%s'\n", publicPathAndName);
-			printf("Found: '%s'\n", ptr);
+			#ifndef __EMSCRIPTEN__
+			realpath(publicPathAndName, actual_path);
+			printf("Found: '%s'\n", actual_path);
+			#else
+			strcpy(actual_path, publicPathAndName);
+			#endif
 			return 0;
 		}
 		// Not found yet. Go up one level.
