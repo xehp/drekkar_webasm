@@ -96,15 +96,15 @@ static size_t load_file(dwac_linear_storage_8_type *storage, const char* file_pa
 
 static int nof_parameters_on_stack(dwac_data *d)
 {
-	return d->sp - d->fp;
+	return (d->sp + DWAC_SP_OFFSET) - d->fp;
 }
 
-static int is_param_ok(dwac_data *d, int nof_params, int nof_results)
+static int is_param_ok(dwac_data *d, int expected_nof_params)
 {
-	int nof_parameters_given = nof_parameters_on_stack(d) + nof_results;
-	if (nof_parameters_given != nof_params)
+	const int nof_parameters_given = nof_parameters_on_stack(d);
+	if (nof_parameters_given != expected_nof_params)
 	{
-		snprintf(d->exception, sizeof(d->exception), "Wrong number of parameters %d %d %d", nof_params, nof_results, nof_parameters_given);
+		snprintf(d->exception, sizeof(d->exception), "Wrong number of parameters %d %d", nof_parameters_given, expected_nof_params);
 		return 0;
 	}
 	return 1;
@@ -114,7 +114,7 @@ static int is_param_ok(dwac_data *d, int nof_params, int nof_results)
 // https://wasix.org/docs/api-reference/wasi/fd_write
 static void wa_fd_write(dwac_data *d)
 {
-	if (!is_param_ok(d, 4, 1)) {return;}
+	if (!is_param_ok(d, 4)) {return;}
 
     // POP last parameter first.
 	uint32_t nwritten_offset = dwac_pop_value_i64(d);
@@ -152,7 +152,7 @@ static void wa_fd_write(dwac_data *d)
 // (import "env" "emscripten_memcpy_big" (func $fimport$1 (param i32 i32 i32) (result i32)))
 static void memcpy_big(dwac_data *d)
 {
-	if (!is_param_ok(d, 3, 1)) {return;}
+	if (!is_param_ok(d, 3)) {return;}
 	long n = 0;
 
     // POP last parameter first.
@@ -188,7 +188,7 @@ static void getTempRet0(dwac_data *d)
 // Import 0x2 'emscripten_resize_heap'  param i32, result i32
 static void emscripten_resize_heap(dwac_data *d)
 {
-	if (!is_param_ok(d, 1, 1)) {return;}
+	if (!is_param_ok(d, 1)) {return;}
 	uint64_t a = dwac_pop_value_i64(d);
     printf("emscripten_resize_heap %llu\n", (unsigned long long)a);
     // Will assume we just change current_size_in_pages.
@@ -221,32 +221,32 @@ void wa_args_sizes_get(Module *m)
 // Test functions, remove later.
 static void test_log_i64(dwac_data *d)
 {
-	if (!is_param_ok(d, 1, 0)) {return;}
+	if (!is_param_ok(d, 1)) {return;}
 	uint64_t n = dwac_pop_value_i64(d);
 	printf("log: %lld\n", (long long)n);
 }
 static void test_log_hex(dwac_data *d)
 {
-	if (!is_param_ok(d, 1, 0)) {return;}
+	if (!is_param_ok(d, 1)) {printf("test_log_hex\n"); return;}
 	uint64_t n = dwac_pop_value_i64(d);
 	printf("log: %llx\n", (long long)n);
 }
 static void test_log_ch(dwac_data *d)
 {
-	if (!is_param_ok(d, 1, 0)) {return;}
+	if (!is_param_ok(d, 1)) {return;}
 	uint64_t n = dwac_pop_value_i64(d);
 	printf("log: %c\n", (int)n);
 }
 static void test_log_str(dwac_data *d)
 {
-	if (!is_param_ok(d, 1, 0)) {return;}
+	if (!is_param_ok(d, 1)) {return;}
 	uint64_t a = dwac_pop_value_i64(d);
 	const uint8_t* ptr = (uint8_t*)dwac_translate_to_host_addr_space(d, a, 1);
 	printf("log: '%s'\n", ptr);
 }
 static void log_empty_line(dwac_data *d)
 {
-	if (!is_param_ok(d, 1, 0)) {return;}
+	if (!is_param_ok(d, 0)) {printf("log_empty_line\n"); return;}
 	printf("log:\n");
 }
 
@@ -255,7 +255,7 @@ static void log_empty_line(dwac_data *d)
 // void __assert_fail(const char * assertion, const char * file, unsigned int line, const char * function);
 static void assert_fail(dwac_data *d)
 {
-	if (!is_param_ok(d, 4, 0)) {return;}
+	if (!is_param_ok(d, 4)) {return;}
 
 	// param i32 i32 i32 i32
 	uint32_t func = dwac_pop_value_i64(d);
@@ -283,24 +283,11 @@ static void drekkar_wart_version(dwac_data *d)
 // Remember last argument pops up first.
 static void syscall_open(dwac_data *d)
 {
-	const int nof_results = 1;
-	int nof_parameters_given = nof_parameters_on_stack(d) + nof_results;
-	if (nof_parameters_given < 3)
-	{
-		snprintf(d->exception, sizeof(d->exception), "Wrong number of parameters");
-	}
-	else if (nof_parameters_given>3)
-	{
-		d->sp -= nof_parameters_given - 3;
-	}
-
+	if (!is_param_ok(d, 3)) {return;}
 
 	int mode_i = dwac_pop_value_i64(d);
 	int flags = dwac_pop_value_i64(d);
 	int pathname_i = dwac_pop_value_i64(d);
-
-
-
 
 	mode_t *mode = dwac_translate_to_host_addr_space(d, mode_i, sizeof(mode_t));
 	const char* pathname = dwac_translate_to_host_addr_space(d, pathname_i, 1);
@@ -317,7 +304,7 @@ static void syscall_open(dwac_data *d)
 // 'env/__syscall_fcntl64' param i32 i32 i32, result i32'
 static void syscall_fcntl64(dwac_data *d)
 {
-	if (!is_param_ok(d, 3, 1)) {return;}
+	if (!is_param_ok(d, 3)) {return;}
 
 	uint32_t p2 = dwac_pop_value_i64(d);
 	uint32_t p1 = dwac_pop_value_i64(d);
@@ -343,8 +330,7 @@ static void syscall_fcntl64(dwac_data *d)
 //
 static void syscall_ioctl(dwac_data *d)
 {
-	const int nof_results = 1;
-	int nof_parameters_given = nof_parameters_on_stack(d) + nof_results;
+	int nof_parameters_given = nof_parameters_on_stack(d);
 	if (nof_parameters_given < 3)
 	{
 		snprintf(d->exception, sizeof(d->exception), "Insufficient number of parameters");
@@ -393,7 +379,7 @@ static void syscall_ioctl(dwac_data *d)
 // tested using emscripten.
 static void fd_read(dwac_data *d)
 {
-	if (!is_param_ok(d, 4, 1)) {return;}
+	if (!is_param_ok(d, 4)) {return;}
 	long n = 0;
 
     // POP last parameter first.
@@ -447,7 +433,7 @@ static void fd_read(dwac_data *d)
 //  (import "wasi_snapshot_preview1" "fd_close" (func $fimport$7 (param i32) (result i32)))
 static void fd_close(dwac_data *d)
 {
-	if (!is_param_ok(d, 1, 1)) {return;}
+	if (!is_param_ok(d, 1)) {return;}
 
 	uint32_t fd = dwac_pop_value_i64(d);
 
@@ -462,7 +448,7 @@ static void fd_close(dwac_data *d)
 // 'env/__syscall_getcwd' param i32 i32, result i32'
 static void syscall_getcwd(dwac_data *d)
 {
-	if (!is_param_ok(d, 2, 1)) {return;}
+	if (!is_param_ok(d, 2)) {return;}
 
 	uint32_t p1 = dwac_pop_value_i64(d);
 	uint32_t p0 = dwac_pop_value_i64(d);
@@ -477,7 +463,7 @@ static void syscall_getcwd(dwac_data *d)
 // 'env/__syscall_readlink' param i32 i32 i32, result i32'
 static void syscall_readlink(dwac_data *d)
 {
-	if (!is_param_ok(d, 3, 1)) {return;}
+	if (!is_param_ok(d, 3)) {return;}
 
 	uint32_t p2 = dwac_pop_value_i64(d);
 	uint32_t p1 = dwac_pop_value_i64(d);
@@ -493,7 +479,7 @@ static void syscall_readlink(dwac_data *d)
 // 'env/__syscall_fstat64' param i32 i32, result i32'
 static void syscall_fstat64(dwac_data *d)
 {
-	if (!is_param_ok(d, 2, 1)) {return;}
+	if (!is_param_ok(d, 2)) {return;}
 
 	uint32_t p1 = dwac_pop_value_i64(d);
 	uint32_t p0 = dwac_pop_value_i64(d);
@@ -511,7 +497,7 @@ static void syscall_fstat64(dwac_data *d)
 // https://gist.github.com/mejedi/e0a5ee813c88effaa146ad6bd65fc482
 static void syscall_stat64(dwac_data *d)
 {
-	if (!is_param_ok(d, 2, 1)) {return;}
+	if (!is_param_ok(d, 2)) {return;}
 
 	// Remember last argument pops up first.
 	struct stat *statbuf = (struct stat*)dwac_translate_to_host_addr_space(d, dwac_pop_value_i64(d), sizeof(struct stat));
@@ -538,7 +524,7 @@ static void syscall_stat64(dwac_data *d)
 // int __syscall_lstat64(intptr_t path, intptr_t buf);
 static void syscall_lstat64(dwac_data *d)
 {
-	if (!is_param_ok(d, 2, 1)) {return;}
+	if (!is_param_ok(d, 2)) {return;}
 
 	uint32_t p1 = dwac_pop_value_i64(d);
 	uint32_t p0 = dwac_pop_value_i64(d);
@@ -555,7 +541,7 @@ static void syscall_lstat64(dwac_data *d)
 //  (import "env" "__syscall_fstatat64" (func $fimport$12 (param i32 i32 i32 i32) (result i32)))
 static void syscall_fstatat64(dwac_data *d)
 {
-	if (!is_param_ok(d, 4, 1)) {return;}
+	if (!is_param_ok(d, 4)) {return;}
 
 	uint32_t p3 = dwac_pop_value_i64(d);
 	uint32_t p2 = dwac_pop_value_i64(d);
@@ -572,7 +558,7 @@ static void syscall_fstatat64(dwac_data *d)
 // 'wasi_snapshot_preview1/fd_seek' param i32 i32 i32 i32 i32, result i32'
 static void fd_seek(dwac_data *d)
 {
-	if (!is_param_ok(d, 5, 1)) {return;}
+	if (!is_param_ok(d, 5)) {return;}
 
 	uint32_t p4 = dwac_pop_value_i64(d);
 	uint32_t p3 = dwac_pop_value_i64(d);
@@ -586,13 +572,14 @@ static void fd_seek(dwac_data *d)
 	dwac_push_value_i64(d, 0);
 }
 
+#ifndef __EMSCRIPTEN__
 // 'env/__syscall_getdents64' param i32 i32 i32, result i32'
 // fd, buf, BUF_SIZE
 // https://linux.die.net/man/2/getdents64
 // int getdents(unsigned int fd, struct linux_dirent *dirp, unsigned int count);
 static void syscall_getdents64(dwac_data *d)
 {
-	if (!is_param_ok(d, 3, 1)) {return;}
+	if (!is_param_ok(d, 3)) {return;}
 
 	uint32_t buf_size = dwac_pop_value_i64(d);
 	uint32_t buf = dwac_pop_value_i64(d);
@@ -607,7 +594,7 @@ static void syscall_getdents64(dwac_data *d)
 
 	dwac_push_value_i64(d, nread);
 }
-
+#endif
 
 // To tell the runtime which functions we have available for it to call.
 // NOTE! If the guest is to be fully sand boxed some of the functions below
@@ -637,7 +624,9 @@ static void register_functions(dwac_prog *p)
 	dwac_register_function(p, "env/__syscall_fstatat64", syscall_fstatat64);
 	dwac_register_function(p, "env/__syscall_stat64", syscall_stat64);
 	dwac_register_function(p, "env/__syscall_lstat64", syscall_lstat64);
+	#ifndef __EMSCRIPTEN__
 	dwac_register_function(p, "env/__syscall_getdents64", syscall_getdents64);
+	#endif
 
 	dwac_register_function(p, "drekkar/wart_version", drekkar_wart_version);
 	dwac_register_function(p, "drekkar/log_i64", test_log_i64);
@@ -731,7 +720,7 @@ static long report_result(const dwac_prog *p, dwac_data *d, const dwac_function 
 	long ret_val = 0;
 	// If the called function had a return value it should be on the stack.
 	// Log the values on stack.
-	fprintf(log, "Stack:\n");
+	fprintf(log, "Stack: %u\n", d->sp + DWAC_SP_OFFSET);
 	while (d->sp != DWAC_SP_INITIAL) {
 		const dwac_func_type_type* type = dwac_get_func_type_ptr(p, f->func_type_idx);
 		uint32_t nof_results = type->nof_results;

@@ -62,7 +62,7 @@ That is the final reg test, this is the output:
 	#pragma GCC diagnostic ignored "-Wformat-truncation"
 	                               ^
 	1 warning generated.
-	henrik@aurora:~/git/drekkar_webasm/drekkar_webasm_runtime/src$ ../drekkar_webasm_runtime a.out.wasm --function_name test ~/git/drekkar_webasm/test_code/test.wasm
+	henrik@aurora:~/git/drekkar_webasm/drekkar_webasm_runtime/src$ ../drekkar_webasm_runtime a.out.wasm --function_name test ~/git/drekkar_webasm/test_code/test.wasm -4 5
 	syscall_open 502400 8002 501240
 	syscall_ioctl fail 3 21523 0x5413 -1 25 'Inappropriate ioctl for device'
 	log:
@@ -75,5 +75,3 @@ That is the final reg test, this is the output:
 	henrik@aurora:~/git/drekkar_webasm/drekkar_webasm_runtime/src$ 
 
 Some warnings but ignoring those, it looks like YES!
-
-

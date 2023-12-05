@@ -1793,7 +1793,12 @@ long dwac_setup_function_call(const dwac_prog *p, dwac_data *d, uint32_t functio
 	assert(func && (func->func_type_idx >= 0));
 	const dwac_func_type_type *type = dwac_get_func_type_ptr(p, func->func_type_idx);
 	assert(type);
-	if (STACK_SIZE(d) < type->nof_parameters) {return DWAC_INSUFFICIENT_PARRAMETERS_FOR_CALL;}
+	const dwac_stack_pointer_signed_type stack_size = STACK_SIZE(d);
+	if (stack_size < type->nof_parameters)
+	{
+		snprintf(d->exception, sizeof(d->exception), "Insufficent nof parameters calling %u.", function_idx);
+		return DWAC_INSUFFICIENT_PARRAMETERS_FOR_CALL;
+	}
 	const dwac_stack_pointer_type expected_sp_after_call = d->sp - type->nof_parameters; // not counting results here
 
 	// Some data to save until returning.
@@ -1828,7 +1833,12 @@ static long call_imported_function(const dwac_prog *p, dwac_data *d, uint32_t fu
 	assert(func && (func->func_type_idx >= 0));
 	const dwac_func_type_type *type = dwac_get_func_type_ptr(p, func->func_type_idx);
 	assert(type);
-	if (STACK_SIZE(d) < type->nof_parameters) {return DWAC_INSUFFICIENT_PARRAMETERS_FOR_CALL;}
+	const dwac_stack_pointer_signed_type stack_size = STACK_SIZE(d);
+	if (stack_size < type->nof_parameters)
+	{
+		snprintf(d->exception, sizeof(d->exception), "Insufficent nof parameters calling %u.", function_idx);
+		return DWAC_INSUFFICIENT_PARRAMETERS_FOR_CALL;
+	}
 	const dwac_stack_pointer_type expected_sp_after_call = d->sp - type->nof_parameters; // not counting results here
 	dwac_stack_pointer_type saved_frame_pointer = d->fp;
 	d->fp = expected_sp_after_call + DWAC_SP_OFFSET;
@@ -1861,7 +1871,9 @@ static long call_imported_function(const dwac_prog *p, dwac_data *d, uint32_t fu
 long dwac_tick(const dwac_prog *p, dwac_data *d)
 {
 	D("dwac_tick\n");
+
 	assert(d->block_stack.size != 0);
+	if (d->stack[DWAC_STACK_SIZE - 1].s64 != WA_MAGIC_STACK_VALUE) {return DWAC_STACK_OVERFLOW;}
 
 	// Regarding gas metering. As a CPU optimization: Instead of counting every
 	// opcode we only count the control opcodes (0x00 ... 0x11).
@@ -2120,6 +2132,7 @@ long dwac_tick(const dwac_prog *p, dwac_data *d)
 					default: break;
 				}
 
+				if (d->stack[DWAC_STACK_SIZE - 1].s64 != WA_MAGIC_STACK_VALUE) {return DWAC_STACK_OVERFLOW;}
 				if (d->pc.pos >= d->pc.nof) {return DWAC_PC_ADDR_OUT_OF_RANGE;}
 				if (--d->gas_meter <= 0) {return DWAC_NEED_MORE_GAS;}
 				break;
@@ -2139,6 +2152,7 @@ long dwac_tick(const dwac_prog *p, dwac_data *d)
 
 				D("br\n");
 
+				if (d->stack[DWAC_STACK_SIZE - 1].s64 != WA_MAGIC_STACK_VALUE) {return DWAC_STACK_OVERFLOW;}
 				if (d->pc.pos >= d->pc.nof) {return DWAC_PC_ADDR_OUT_OF_RANGE;}
 				if (--d->gas_meter <= 0) {return DWAC_NEED_MORE_GAS;}
 				break;
@@ -2168,6 +2182,7 @@ long dwac_tick(const dwac_prog *p, dwac_data *d)
 					/* do nothing, will just continue with next opcode. */
 				}
 
+				if (d->stack[DWAC_STACK_SIZE - 1].s64 != WA_MAGIC_STACK_VALUE) {return DWAC_STACK_OVERFLOW;}
 				if (d->pc.pos >= d->pc.nof) {return DWAC_PC_ADDR_OUT_OF_RANGE;}
 				if (--d->gas_meter <= 0) {return DWAC_NEED_MORE_GAS;}
 				break;
@@ -2244,14 +2259,9 @@ long dwac_tick(const dwac_prog *p, dwac_data *d)
 					return DWAC_BLOCKSTACK_UNDERFLOW;
 				}
 
-				// Check if there was a stack overflow.
-				if (d->stack[DWAC_STACK_SIZE - 1].s64 != WA_MAGIC_STACK_VALUE)
-				{
-					return DWAC_STACK_OVERFLOW;
-				}
-
 				D("return\n");
 
+				if (d->stack[DWAC_STACK_SIZE - 1].s64 != WA_MAGIC_STACK_VALUE) {return DWAC_STACK_OVERFLOW;}
 				if (d->pc.pos >= d->pc.nof) {return DWAC_PC_ADDR_OUT_OF_RANGE;}
 				if (--d->gas_meter <= 0) {return DWAC_NEED_MORE_GAS;}
 				break;
@@ -2279,6 +2289,7 @@ long dwac_tick(const dwac_prog *p, dwac_data *d)
 					}
 				}
 
+				if (d->stack[DWAC_STACK_SIZE - 1].s64 != WA_MAGIC_STACK_VALUE) {return DWAC_STACK_OVERFLOW;}
 				if (d->pc.pos >= d->pc.nof) {return DWAC_PC_ADDR_OUT_OF_RANGE;}
 				if (--d->gas_meter <= 0) {return DWAC_NEED_MORE_GAS;}
 				break;
@@ -2355,6 +2366,7 @@ long dwac_tick(const dwac_prog *p, dwac_data *d)
 
 				D("call_indirect %u %u %u %u\n", typeidx, tableidx, idx_into_table, (unsigned int)function_idx);
 
+				if (d->stack[DWAC_STACK_SIZE - 1].s64 != WA_MAGIC_STACK_VALUE) {return DWAC_STACK_OVERFLOW;}
 				if (d->pc.pos >= d->pc.nof) {return DWAC_PC_ADDR_OUT_OF_RANGE;}
 				if (--d->gas_meter <= 0) {return DWAC_NEED_MORE_GAS;}
 				break;

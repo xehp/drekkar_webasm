@@ -45,7 +45,7 @@
 //    PATCH version when you make backward compatible bug fixes
 // Warning! We do not follow this at early stages when major is 0.
 #define DREKKAR_VERSION_MAJOR 0
-#define DREKKAR_VERSION_MINOR 13
+#define DREKKAR_VERSION_MINOR 14
 #define DREKKAR_VERSION_PATCH 0
 
 
@@ -363,9 +363,11 @@ struct dwac_leb128_reader_type
 #define DWAC_SP_OFFSET 1
 #if DWAC_STACK_SIZE == 0x10000
 #define dwac_stack_pointer_type uint16_t
+#define dwac_stack_pointer_signed_type int16_t
 #define DWAC_SP_INITIAL ((uint16_t)(-1))
 #else
 #define dwac_stack_pointer_type uint32_t
+#define dwac_stack_pointer_signed_type int32_t
 #define DWAC_SP_INITIAL ((uint32_t)(-1))
 #endif
 
@@ -671,7 +673,7 @@ struct dwac_data
 	dwac_leb128_reader_type pc;
 
 	// Main stack and stack pointer.
-	dwac_stack_pointer_type sp;
+	dwac_stack_pointer_type sp; // NOTE offset by minus DWAC_SP_OFFSET
 	dwac_stack_pointer_type fp;
 	dwac_value_type stack[DWAC_STACK_SIZE];
 
