@@ -1874,6 +1874,8 @@ long dwac_tick(const dwac_prog *p, dwac_data *d)
 
 	assert(d->block_stack.size != 0);
 	if (d->stack[DWAC_STACK_SIZE - 1].s64 != WA_MAGIC_STACK_VALUE) {return DWAC_STACK_OVERFLOW;}
+	if (d->pc.pos >= d->pc.nof) {return DWAC_PC_ADDR_OUT_OF_RANGE;}
+	if (d->exception[0] !=  0) {return DWAC_EXCEPTION;}
 
 	// Regarding gas metering. As a CPU optimization: Instead of counting every
 	// opcode we only count the control opcodes (0x00 ... 0x11).
