@@ -98,6 +98,7 @@ int dwac_st_is_valid_min(const void* ptr, size_t size);
 size_t dwac_st_size(const void* ptr);
 
 #ifndef NDEBUG
+// Macros with memory leak and buffer overwrite detection.
 #define DWAC_ST_MALLOC(size) dwac_st_malloc(size)
 #define DWAC_ST_CALLOC(num, size) dwac_st_calloc(num, size)
 #define DWAC_ST_FREE(ptr) {dwac_st_free(ptr); ptr = NULL;}
@@ -106,8 +107,8 @@ size_t dwac_st_size(const void* ptr);
 #define DWAC_ST_ASSERT_MIN(ptr, size) assert(dwac_st_is_valid_min(ptr, size))
 #define DWAC_ST_FREE_SIZE(ptr, size) {assert(dwac_st_is_valid_size(ptr, size)); dwac_st_free(ptr); ptr = NULL;}
 #define DWAC_ST_REALLOC(ptr, new_size) dwac_st_realloc(ptr, new_size);
-#define ST_RECALLOC(ptr, old_num, new_num, size) dwac_st_recalloc(ptr, old_num, new_num, size);
 #else
+// Macros with no memory leak or buffer overwrite detection.
 #define DWAC_ST_MALLOC(size) malloc(size);
 #define DWAC_ST_CALLOC(num, size) calloc(num, size)
 #define DWAC_ST_FREE(ptr) free(ptr)
@@ -118,6 +119,7 @@ size_t dwac_st_size(const void* ptr);
 
 #else
 
+// Macros and alloc code with treacing of allocations.
 void* dwac_st_malloc(size_t size, const char *file, unsigned int line);
 void* dwac_st_calloc(size_t num, size_t size, const char *file, unsigned int line);
 void dwac_st_free(const void* ptr, const char *file, unsigned int line);
@@ -148,7 +150,7 @@ void dwac_st_log_linked_list();
 
 
 // Size must be power of 2.
-#define DWAC_HASH_LIST_INIT_SIZE 256 // TODO Set it to just 16 again.
+#define DWAC_HASH_LIST_INIT_SIZE 32
 #define DWAC_HASH_LIST_MAX_KEY_SIZE (64)
 
 
@@ -271,6 +273,7 @@ void* dwac_linear_storage_size_get(dwac_linear_storage_size_type *s, size_t idx)
 void* dwac_linear_storage_size_push(dwac_linear_storage_size_type *s);
 void* dwac_linear_storage_size_pop(dwac_linear_storage_size_type *s);
 void* dwac_linear_storage_size_top(dwac_linear_storage_size_type *s);
+void* dwac_linear_storage_size_get_const(const dwac_linear_storage_size_type *s, size_t idx);
 
 
 // End of file linear_storage_size.h
@@ -371,7 +374,12 @@ struct dwac_leb128_reader_type
 #define DWAC_SP_INITIAL ((uint32_t)(-1))
 #endif
 
+// Enable this macro if floating point is not needed.
 //#define SKIP_FLOAT
+
+// Enable this macro if logging call stack is needed when exceptions happen.
+#define LOG_FUNC_NAMES
+
 
 // Ref [1] 4.2.8. Memory Instances -> One page is 64Ki bytes.
 // It seems ref [3] had page size as 0x10000*sizeof(uint32_t)
@@ -507,17 +515,16 @@ typedef struct dwac_data dwac_data;
 // If something is added here, add it to type_name also.
 enum dwac_value_type_enum
 {
-	// TODO prefix these also?
-    //WA_INVALID_VALUE = 0,
-	WA_EMPTY_TYPE = 0x40,
-	WA_FUNC = 0x60,
-	WA_EXTERNREF = 0x6f,
-	WA_ANYFUNC = 0x70,
-	WA_VECTYPE = 0x7b,
-	WA_F64 = 0x7c,
-	WA_F32 = 0x7d,
-	WA_I64 = 0x7e,
-	WA_I32 = 0x7f,
+    //DWAC_INVALID_VALUE = 0,
+	DWAC_EMPTY_TYPE = 0x40,
+	DWAC_FUNC = 0x60,
+	DWAC_EXTERNREF = 0x6f,
+	DWAC_ANYFUNC = 0x70,
+	DWAC_VECTYPE = 0x7b,
+	DWAC_F64 = 0x7c,
+	DWAC_F32 = 0x7d,
+	DWAC_I64 = 0x7e,
+	DWAC_I32 = 0x7f,
 };
 
 // [1] 5.5.5. Import Section & 5.5.10. Export Section
@@ -593,7 +600,7 @@ typedef struct dwac_block_stack_entry
 {
 	// The type of the block and function currently being executed.
 	int32_t func_type_idx; // Index into types from section 1, or -64 for empty type (see value_type_enum).
-	uint8_t block_type_code; // See block_type_enum for possible values.
+	uint8_t block_type_code; // See dwac_block_type_enum for possible values.
 	union {
 		dwac_func_info_type func_info; // For function idx >= nof_imported &  dwac_block_type_init_exp.
 		dwac_block_info_type block_and_loop_info; // For non functions, blocks loops etc.
@@ -653,6 +660,11 @@ typedef struct dwac_prog
 	// TODO func_table shall be moved to dwac_data since it can be changed
 	// by a running program, see not yet implemented instruction table.set.
 	dwac_linear_storage_64_type func_table;
+
+	#ifdef LOG_FUNC_NAMES
+	dwac_linear_storage_size_type func_names;
+	#endif
+
 } dwac_prog;
 
 
@@ -693,6 +705,7 @@ struct dwac_data
 	char exception[256]; // If an error happens, additional info might be written here.
 };
 
+size_t dwac_func_type_to_string(char *buf, size_t size, const dwac_func_type_type *type);
 long dwac_value_and_type_to_string(char* buf, size_t size, const dwac_value_type *v, uint8_t t);
 long dwac_setup_function_call(const dwac_prog *p, dwac_data *d, uint32_t fidx);
 long dwac_tick(const dwac_prog *p, dwac_data *d);

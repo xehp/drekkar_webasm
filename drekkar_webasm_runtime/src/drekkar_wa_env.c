@@ -47,8 +47,8 @@ Created October 2023 by Henrik
 #include "drekkar_wa_core.h"
 #include "drekkar_wa_env.h"
 
-
-#define D(...) {fprintf(stdout, __VA_ARGS__);}
+// Enable this macro if debugging.
+//#define D(...) {fprintf(stdout, __VA_ARGS__);}
 
 #ifndef D
 #define D(...)
@@ -62,13 +62,13 @@ typedef struct wa_ciovec_type {
 } wa_ciovec_type;
 
 
-static void log_hex(const uint8_t *ptr, size_t n)
+/*static void log_hex(const uint8_t *ptr, size_t n)
 {
 	for(size_t i = 0; i < n;i++)
 	{
 		printf("%02x", ptr[i]);
 	}
-}
+}*/
 
 // Tip: To know what the file should look like try something like:
 //      od -t x1 hello_world.wasm
@@ -424,6 +424,8 @@ static void fd_read(dwac_data *d)
 	*nread_offset_ptr = n;
 
     D("fd_read n = %ld\n", n);
+
+	//snprintf(d->exception, sizeof(d->exception), "Not implemented:fd_read");
 
 	// Push return value.
 	dwac_push_value_i64(d, WASI_ESUCCESS);
@@ -798,6 +800,70 @@ static long report_result(const dwac_prog *p, dwac_data *d, const dwac_function 
 	return ret_val;
 }
 
+#ifdef LOG_FUNC_NAMES
+static void log_block_stack(const dwac_prog *p, dwac_data *d)
+{
+	printf("call stack:\n");
+	for(;;)
+	{
+		dwac_block_stack_entry *e = dwac_linear_storage_size_pop(&d->block_stack);
+		if (e == NULL) {break;}
+		switch(e->block_type_code)
+		{
+			// TODO Would be nice to print function names.
+			case dwac_block_type_internal_func:
+			case dwac_block_type_imported_func:
+			{
+				const char* func_name = dwac_linear_storage_size_get_const(&p->func_names, e->func_info.func_idx);
+				if (func_name)
+				{
+					#if 0
+					char tmp[256];
+					const dwac_func_type_type *type = dwac_get_func_type_ptr(p, e->func_type_idx);
+					assert(type);
+					dwac_func_type_to_string(tmp, sizeof(tmp), type);
+					printf("  %s %d %s\n", func_name, e->func_info.func_idx, tmp);
+					#else
+					printf("  %s\n", func_name);
+					#endif
+				}
+				else
+				{
+					printf("  function index %d\n", e->func_info.func_idx);
+				}
+				break;
+			}
+			default:
+				break;
+		}
+	}
+}
+#endif
+
+static long check_exception(const dwac_prog *p, dwac_data *d, long r)
+{
+	if ((r != DWAC_NEED_MORE_GAS) && (r != DWAC_OK))
+	{
+		printf("exception %ld '%s'\n", r, d->exception);
+		assert(d->exception[sizeof(d->exception)-1]==0);
+		log_block_stack(p, d);
+		d->exception[0] = 0;
+	}
+	else if (d->exception[0] != 0)
+	{
+		printf("Unhandled exception '%s'\n", d->exception);
+		log_block_stack(p, d);
+		d->exception[0] = 0;
+		return DWAC_EXCEPTION;
+	}
+	else if (total_memory_usage(d) > MAX_MEM_QUOTA)
+	{
+		printf("To much memory used %lld > %d\n", total_memory_usage(d), MAX_MEM_QUOTA);
+		log_block_stack(p, d);
+		return DWAC_MAX_MEM_QUOTA_EXCEEDED;
+	}
+	return r;
+}
 
 static long call_and_run_exported_function(const dwac_prog *p, dwac_data *d, const dwac_function *f, FILE* log)
 {
@@ -807,38 +873,25 @@ static long call_and_run_exported_function(const dwac_prog *p, dwac_data *d, con
 	for(;;)
 	{
 		total_gas_usage += (DWAC_GAS - d->gas_meter);
-		if ((r != DWAC_NEED_MORE_GAS) && (r != DWAC_OK))
+		r = check_exception(p, d, r);
+		if (r == DWAC_NEED_MORE_GAS)
 		{
-			printf("exception %ld '%s'\n", r, d->exception);
-			assert(d->exception[sizeof(d->exception)-1]==0);
-			d->exception[0] = 0;
-			break;
-		}
-		else if (d->exception[0] != 0)
-		{
-			printf("Unhandled exception '%s'\n", d->exception);
-			d->exception[0] = 0;
-			break;
-		}
-		else if (r == DWAC_NEED_MORE_GAS)
-		{
-			if (total_memory_usage(d) > MAX_MEM_QUOTA)
-			{
-				printf("To much memory used %lld > %d\n", total_memory_usage(d), MAX_MEM_QUOTA);
-				return DWAC_MAX_MEM_QUOTA_EXCEEDED;
-			}
-
 			// Guest has more work to do. Let it continue some more.
 			r = dwac_tick(p, d);
 		}
 		else if (r == DWAC_OK)
 		{
+			// Guest is done.
 			if (log)
 			{
 				report_result(p, d, f, log);
 			    fprintf(log, "Total gas and memory usage: %lld %lld\n", total_gas_usage, total_memory_usage(d));
 			}
 			break;
+		}
+		else
+		{
+			return r;
 		}
 	}
 	return r;
@@ -886,9 +939,11 @@ static long find_and_call(dwac_env_type *e)
 	D("find_and_call\n");
 	// Do we need to call "__wasm_call_ctors" also?
 	long r = call_errno(e);
+	r = check_exception(e->p, e->d, r);
 	if (r) {return r;}
 
 	r = call_ctors(e->p, e->d);
+	r = check_exception(e->p, e->d, r);
 	if (r) {return r;}
 
 	const dwac_function *f;

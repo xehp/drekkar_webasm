@@ -10,6 +10,14 @@ main.c
 
 
 ska ge: 9.1
+
+
+Compile like this:
+emcc -O0 -g bonds.c
+
+To examine the generated code do:
+wasm-dis a.out.wasm > a.out.wat
+
 */
 
 

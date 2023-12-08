@@ -905,6 +905,16 @@ void* dwac_linear_storage_size_top(dwac_linear_storage_size_type *s)
 	return s->array + ((s->size-1) * s->element_size);
 }
 
+void* dwac_linear_storage_size_get_const(const dwac_linear_storage_size_type *s, size_t idx)
+{
+	assert(s->size >= 0);
+	if (idx >= s->size)
+	{
+		return NULL;
+	}
+	return s->array + (idx * s->element_size);
+}
+
 
 // End of file linear_storage_size.h
 
@@ -1387,10 +1397,10 @@ static uint32_t wa_get_mem_size(const dwac_data *d)
 static const dwac_func_type_type block_types[5] =
 {
 	{ .nof_parameters = 0, .nof_results = 0, .results_list = { 0 }, },
-	{ .nof_parameters = 0, .nof_results = 1, .results_list = { WA_I32, 0 }, },
-	{ .nof_parameters = 0, .nof_results = 1, .results_list = { WA_I64, 0 }, },
-	{ .nof_parameters = 0, .nof_results = 1, .results_list = { WA_F32, 0 }, },
-	{ .nof_parameters = 0, .nof_results = 1, .results_list = { WA_F64, 0 }, }
+	{ .nof_parameters = 0, .nof_results = 1, .results_list = { DWAC_I32, 0 }, },
+	{ .nof_parameters = 0, .nof_results = 1, .results_list = { DWAC_I64, 0 }, },
+	{ .nof_parameters = 0, .nof_results = 1, .results_list = { DWAC_F32, 0 }, },
+	{ .nof_parameters = 0, .nof_results = 1, .results_list = { DWAC_F64, 0 }, }
 };
 
 
@@ -1412,11 +1422,11 @@ const dwac_func_type_type* dwac_get_func_type_ptr(const dwac_prog *p, int32_t ty
 	{
 		switch (-type_idx)
 		{
-			case WA_EMPTY_TYPE: return &block_types[0];
-			case WA_I32: return &block_types[1];
-			case WA_I64: return &block_types[2];
-			case WA_F32: return &block_types[3];
-			case WA_F64: return &block_types[4];
+			case DWAC_EMPTY_TYPE: return &block_types[0];
+			case DWAC_I32: return &block_types[1];
+			case DWAC_I64: return &block_types[2];
+			case DWAC_F32: return &block_types[3];
+			case DWAC_F64: return &block_types[4];
 			default: break;
 		}
 	}
@@ -1430,15 +1440,15 @@ static const char* type_name(uint8_t t)
 	switch (t)
 	{
 		//case WA_INVALID_VALUE: return "invalid";
-		case WA_EMPTY_TYPE: return "void";
-		case WA_FUNC: return "func";
-		case WA_EXTERNREF: return "externref";
-		case WA_ANYFUNC: return "anyfunc";
-		case WA_VECTYPE: return "vectype";
-		case WA_F64: return "f64";
-		case WA_F32: return "f32";
-		case WA_I64: return "i64";
-		case WA_I32: return "i32";
+		case DWAC_EMPTY_TYPE: return "void";
+		case DWAC_FUNC: return "func";
+		case DWAC_EXTERNREF: return "externref";
+		case DWAC_ANYFUNC: return "anyfunc";
+		case DWAC_VECTYPE: return "vectype";
+		case DWAC_F64: return "f64";
+		case DWAC_F32: return "f32";
+		case DWAC_I64: return "i64";
+		case DWAC_I32: return "i32";
 		default: return "unknown";
 	}
 	return "?";
@@ -1449,27 +1459,27 @@ long dwac_value_and_type_to_string(char *buf, size_t size, const dwac_value_type
 {
 	switch (t)
 	{
-		case WA_I32:
+		case DWAC_I32:
 			return snprintf(buf, size, "0x%x:i32", v->u32);
 			break;
-		case WA_I64:
+		case DWAC_I64:
 			return snprintf(buf, size, "0x%llx:i64", (long long unsigned) v->u64);
 			break;
 		#ifndef SKIP_FLOAT
-		case WA_F32:
+		case DWAC_F32:
 			return snprintf(buf, size, "%.7g:f32", v->f32);
 			break;
-		case WA_F64:
+		case DWAC_F64:
 			return snprintf(buf, size, "%.7g:f64", v->f64);
 			break;
 		#endif
-		case WA_ANYFUNC:
+		case DWAC_ANYFUNC:
 			snprintf(buf, size, "%llx:ANYFUNC", (long long unsigned) v->u64);
 			break;
-		case WA_FUNC:
+		case DWAC_FUNC:
 			snprintf(buf, size, "0x%llx:FUNC", (long long unsigned) v->u64);
 			break;
-		case WA_EMPTY_TYPE:
+		case DWAC_EMPTY_TYPE:
 			snprintf(buf, size, "0x%llx:EMPTY_TYPE", (long long unsigned) v->u64);
 			break;
 		/*case WA_INVALID_VALUE:
@@ -1481,10 +1491,10 @@ long dwac_value_and_type_to_string(char *buf, size_t size, const dwac_value_type
 	return snprintf(buf, size, "0x%llx:unknown%u", (long long unsigned) v->u64, t);
 }
 
-static size_t func_type_to_string(char *buf, size_t size, const dwac_func_type_type *type)
+size_t dwac_func_type_to_string(char *buf, size_t size, const dwac_func_type_type *type)
 {
 	size_t n = 0;
-	n += snprintf(buf + n, size - n, "param");
+	n += snprintf(buf + n, size - n, "(param");
 	if (type->nof_parameters == 0)
 	{
 		n += snprintf(buf + n, size - n, " void");
@@ -1494,16 +1504,19 @@ static size_t func_type_to_string(char *buf, size_t size, const dwac_func_type_t
 		{
 			n += snprintf(buf + n, size - n, " %s", type_name(type->parameters_list[i]));
 		}
-	n += snprintf(buf + n, size - n, ", result");
+	n += snprintf(buf + n, size - n, ") (result");
 	if (type->nof_results == 0)
 	{
 		n += snprintf(buf + n, size - n, " void");
 	}
 	else
+	{
 		for (int i = 0; i < type->nof_results; ++i)
 		{
 			n += snprintf(buf + n, size - n, " %s", type_name(type->results_list[i]));
 		}
+	}
+	n += snprintf(buf + n, size - n, ")");
 	return n;
 }
 
@@ -1855,7 +1868,7 @@ static long call_imported_function(const dwac_prog *p, dwac_data *d, uint32_t fu
 	else if (d->sp != expected_sp_after_call + type->nof_results)
 	{
 		char tmp[256];
-		func_type_to_string(tmp, sizeof(tmp), type);
+		dwac_func_type_to_string(tmp, sizeof(tmp), type);
 		snprintf(d->exception, sizeof(d->exception), "Unexpected nof parameters and/or arguments, %d != %d + %d, %s.", (int) d->sp, (int) expected_sp_after_call, type->nof_results, tmp);
 		return DWAC_EXTERNAL_STACK_MISMATCH;
 	}
@@ -3950,8 +3963,52 @@ long dwac_parse_prog_sections(dwac_prog *p, const uint8_t *bytes, uint32_t byte_
 				// [1] 5.5.3. Custom Section
 				//     Intended to be used for debugging information or third-party extensions, and are
 				//     ignored by the WebAssembly semantics.
-				// Will look at this later. Hoping emscripten gives line numbers for debugging somewhere...
+				#ifdef LOG_FUNC_NAMES
+				// Emscripten gives function names in custom section name if "-g" option is given.
+				// This is how to read that section.
+				size_t strlen = 0;
+				const char* csname = leb_read_string(&p->bytecodes, &strlen);
+				D("Custom Section %d %.*s\n", section_len, (int)strlen, csname);
+				if (memcmp(csname, "name", 4)==0)
+				{
+					// https://webassembly.github.io/spec/core/appendix/custom.html
+					while(p->bytecodes.pos < section_begin + section_len)
+					{
+						uint8_t subsection_id = leb_read_uint8(&p->bytecodes);
+						uint32_t subsection_len = leb_read(&p->bytecodes, 32);
+						D("  name subsection %d %d\n", subsection_id, subsection_len);
+						switch(subsection_id)
+						{
+							case 1:
+								uint32_t n = leb_read(&p->bytecodes, 32);
+								for(int i = 0; i < n; i++)
+								{
+									size_t func_name_len = 0;
+									uint32_t func_idx = leb_read(&p->bytecodes, 32);
+									const char* func_name = leb_read_string(&p->bytecodes, &func_name_len);
+									D("    %d %.*s\n", func_idx, (int)func_name_len, func_name);
+									if (func_name_len>DWAC_HASH_LIST_MAX_KEY_SIZE)
+									{
+										func_name_len = DWAC_HASH_LIST_MAX_KEY_SIZE;
+									}
+									uint8_t tmp[DWAC_HASH_LIST_MAX_KEY_SIZE+1]= {0};
+									memcpy(tmp, func_name, func_name_len);
+									tmp[func_name_len] = 0;
+									dwac_linear_storage_size_set(&p->func_names, func_idx, tmp);
+								}
+								break;
+							default:
+								p->bytecodes.pos += subsection_len;
+								break;
+						}
+					}
+					printf("\n");
+				}
+				p->bytecodes.pos = section_begin + section_len;
+				#else
+				D("Custom Section ignored %d %s\n", section_len, p->bytecodes.array + p->bytecodes.pos);
 				p->bytecodes.pos += section_len;
+				#endif
 				break;
 			}
 			case 1:
@@ -3970,7 +4027,7 @@ long dwac_parse_prog_sections(dwac_prog *p, const uint8_t *bytes, uint32_t byte_
 					//     parameter and result types.
 					// Does this mean there can be other types such as limits here?
 					int magic = leb_read_uint8(&p->bytecodes);
-					if (magic != WA_FUNC)
+					if (magic != DWAC_FUNC)
 					{
 						printf("Not the function type code 0x%x\n", magic);
 					}
@@ -3997,7 +4054,7 @@ long dwac_parse_prog_sections(dwac_prog *p, const uint8_t *bytes, uint32_t byte_
 					}
 
 					char tmp[256];
-					func_type_to_string(tmp, sizeof(tmp), type);
+					dwac_func_type_to_string(tmp, sizeof(tmp), type);
 					D("Type %u %s\n", i, tmp);
 				}
 				break;
@@ -4056,7 +4113,7 @@ long dwac_parse_prog_sections(dwac_prog *p, const uint8_t *bytes, uint32_t byte_
 
 							char tmp[256];
 							const dwac_func_type_type *type = dwac_get_func_type_ptr(p, f->func_type_idx);
-							func_type_to_string(tmp, sizeof(tmp), type);
+							dwac_func_type_to_string(tmp, sizeof(tmp), type);
 							if (log) {fprintf(log, "Import 0x%x '%s' %s\n", p->funcs_vector.nof_imported, m, tmp);}
 
 							void *ptr = find_imported_function(p, m);
@@ -4125,7 +4182,7 @@ long dwac_parse_prog_sections(dwac_prog *p, const uint8_t *bytes, uint32_t byte_
 				}
 
 				uint32_t table_type = leb_read(&p->bytecodes, 33);
-				if (table_type != WA_ANYFUNC)
+				if (table_type != DWAC_ANYFUNC)
 				{
 					return DWAC_NOT_SUPPORTED_TABLE_TYPE;
 				}
@@ -4183,7 +4240,7 @@ long dwac_parse_prog_sections(dwac_prog *p, const uint8_t *bytes, uint32_t byte_
 							// Some logging
 							const dwac_func_type_type *t = dwac_get_func_type_ptr(p, e->func_type_idx);
 							char tmp[256];
-							func_type_to_string(tmp, sizeof(tmp), t);
+							dwac_func_type_to_string(tmp, sizeof(tmp), t);
 							if (log) {fprintf(log, "Exported 0x%x '%s'  %s\n", index, export_name, tmp);}
 
 							dwac_hash_list_put(&p->exported_functions_list, export_name, e);
@@ -4230,7 +4287,7 @@ long dwac_parse_prog_sections(dwac_prog *p, const uint8_t *bytes, uint32_t byte_
 					}
 
 					// Run the init_expr to get offset into table on the stack.
-					run_init_expr(p, d, WA_I32, section_len);
+					run_init_expr(p, d, DWAC_I32, section_len);
 
 					size_t offset = POP_I32(d);
 
@@ -4287,15 +4344,15 @@ long dwac_parse_prog_sections(dwac_prog *p, const uint8_t *bytes, uint32_t byte_
 						uint32_t valtype = leb_read(&p->bytecodes, 7);
 						switch (valtype)
 						{
-							case WA_I32:
-							case WA_F32:
-							case WA_FUNC:
-							case WA_ANYFUNC:
-							case WA_EXTERNREF:
-							case WA_I64:
-							case WA_F64:
+							case DWAC_I32:
+							case DWAC_F32:
+							case DWAC_FUNC:
+							case DWAC_ANYFUNC:
+							case DWAC_EXTERNREF:
+							case DWAC_I64:
+							case DWAC_F64:
 								break;
-							case WA_VECTYPE:
+							case DWAC_VECTYPE:
 							default:
 								return DWAC_VECTORS_NOT_SUPPORTED;
 						}
@@ -4461,7 +4518,7 @@ long dwac_parse_data_sections(const dwac_prog *p, dwac_data *d)
 					}
 
 					// Run the init_expr to get offset into table on the stack.
-					run_init_expr(p, d, WA_I32, section_len);
+					run_init_expr(p, d, DWAC_I32, section_len);
 
 					size_t offset = POP_I32(d);
 
@@ -4500,7 +4557,7 @@ long dwac_parse_data_sections(const dwac_prog *p, dwac_data *d)
 					}
 
 					// Run the init_expr to get the offset onto stack.
-					run_init_expr(p, d, WA_I32, section_len);
+					run_init_expr(p, d, DWAC_I32, section_len);
 					uint32_t offset = POP_U32(d);
 
 					uint32_t size = leb_read(&d->pc, 32);
@@ -4637,6 +4694,11 @@ void dwac_register_function(dwac_prog *p, const char *name, dwac_func_ptr ptr)
 void dwac_prog_deinit(dwac_prog *p)
 {
 	D("dwac_prog_deinit\n");
+
+	#ifdef LOG_FUNC_NAMES
+	dwac_linear_storage_size_deinit(&p->func_names);
+	#endif
+
 	dwac_linear_storage_size_deinit(&p->function_types_vector);
 
 	for (uint32_t i = 0; i < p->funcs_vector.nof_imported; i++)
@@ -4757,4 +4819,9 @@ void dwac_prog_init(dwac_prog *p)
 	dwac_hash_list_init(&p->exported_functions_list);
 	dwac_linear_storage_64_init(&p->func_table);
 	dwac_linear_storage_size_init(&p->function_types_vector, sizeof(dwac_func_type_type));
+
+	#ifdef LOG_FUNC_NAMES
+	dwac_linear_storage_size_init(&p->func_names, DWAC_HASH_LIST_MAX_KEY_SIZE+1);
+	#endif
+
 }
