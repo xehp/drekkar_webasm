@@ -371,7 +371,7 @@ struct dwac_leb128_reader_type
 #define DWAC_SP_INITIAL ((uint32_t)(-1))
 #endif
 
-#define SKIP_FLOAT
+//#define SKIP_FLOAT
 
 // Ref [1] 4.2.8. Memory Instances -> One page is 64Ki bytes.
 // It seems ref [3] had page size as 0x10000*sizeof(uint32_t)

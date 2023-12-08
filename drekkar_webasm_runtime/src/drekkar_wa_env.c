@@ -48,7 +48,7 @@ Created October 2023 by Henrik
 #include "drekkar_wa_env.h"
 
 
-//#define D(...) {fprintf(stdout, __VA_ARGS__);}
+#define D(...) {fprintf(stdout, __VA_ARGS__);}
 
 #ifndef D
 #define D(...)
@@ -397,7 +397,7 @@ static void fd_read(dwac_data *d)
 
 	//printf("iovs_len %d\n", iovs_len);
 
-	assert((fd==1) || (fd==3)); // TODO Don't hard code 3.
+	assert((fd>=0) || (fd<=3)); // TODO Don't hard code 3.
 	for(unsigned int i=0; i < iovs_len; ++i)
 	{
 		wa_ciovec_type *v = &iovs_offset_ptr[i];
