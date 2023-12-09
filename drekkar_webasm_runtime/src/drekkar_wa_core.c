@@ -51,10 +51,16 @@
 #include "drekkar_wa_core.h"
 
 
-//#define D(...) {fprintf(stdout, __VA_ARGS__);}
+// Enable this macro if lots of debug logging is needed.
+//#define DBG
 
 
-#ifndef D
+
+
+
+#ifdef DBG
+#define D(...) {fprintf(stdout, __VA_ARGS__);}
+#else
 #define D(...)
 #endif
 
@@ -1878,6 +1884,17 @@ static long call_imported_function(const dwac_prog *p, dwac_data *d, uint32_t fu
 	return DWAC_OK;
 }
 
+#ifdef LOG_FUNC_NAMES
+const char* dwac_get_func_name(const dwac_prog *p, long function_idx)
+{
+	#ifdef LOG_FUNC_NAMES
+	const char* func_name = dwac_linear_storage_size_get_const(&p->func_names, function_idx);
+	return func_name ? func_name : "";
+	#else
+	return "";
+	#endif
+}
+#endif
 
 // This is then main state event machine that runs the program.
 // Returns zero if OK
@@ -2285,7 +2302,8 @@ long dwac_tick(const dwac_prog *p, dwac_data *d)
 			{
 				// 0x10 x:funcidx
 				const uint32_t function_idx = leb_read(&d->pc, 32);
-				D("call %u\n", function_idx);
+
+				D("call %u %s\n", function_idx, dwac_get_func_name(p, function_idx));
 
 				if (function_idx < p->funcs_vector.nof_imported)
 				{
@@ -2379,7 +2397,7 @@ long dwac_tick(const dwac_prog *p, dwac_data *d)
 					if (r) {return DWAC_INDIRECT_CALL_FAILED;}
 				}
 
-				D("call_indirect %u %u %u %u\n", typeidx, tableidx, idx_into_table, (unsigned int)function_idx);
+				D("call_indirect %u %u %u %u %s\n", typeidx, tableidx, idx_into_table, (unsigned int)function_idx, dwac_get_func_name(p, function_idx));
 
 				if (d->stack[DWAC_STACK_SIZE - 1].s64 != WA_MAGIC_STACK_VALUE) {return DWAC_STACK_OVERFLOW;}
 				if (d->pc.pos >= d->pc.nof) {return DWAC_PC_ADDR_OUT_OF_RANGE;}

@@ -119,7 +119,7 @@ size_t dwac_st_size(const void* ptr);
 
 #else
 
-// Macros and alloc code with treacing of allocations.
+// Macros and alloc code with tracing of allocations.
 void* dwac_st_malloc(size_t size, const char *file, unsigned int line);
 void* dwac_st_calloc(size_t num, size_t size, const char *file, unsigned int line);
 void dwac_st_free(const void* ptr, const char *file, unsigned int line);
@@ -719,10 +719,10 @@ void dwac_data_deinit(dwac_data *d, FILE* log);
 long dwac_set_command_line_arguments(dwac_data *d, uint32_t argc, const char **argv);
 void* dwac_translate_to_host_addr_space(dwac_data *d, uint32_t offset, size_t size);
 void dwac_register_function(dwac_prog *p, const char* name, dwac_func_ptr ptr);
-
 void dwac_push_value_i64(dwac_data *d, int64_t v);
 int32_t dwac_pop_value_i64(dwac_data *d);
 const dwac_func_type_type* dwac_get_func_type_ptr(const dwac_prog *p, int32_t type_idx);
 long dwac_call_exported_function(const dwac_prog *p, dwac_data *d, uint32_t func_idx);
+const char* dwac_get_func_name(const dwac_prog *p, long function_idx);
 
 #endif

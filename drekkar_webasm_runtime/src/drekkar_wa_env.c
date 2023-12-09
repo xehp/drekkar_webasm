@@ -47,12 +47,18 @@ Created October 2023 by Henrik
 #include "drekkar_wa_core.h"
 #include "drekkar_wa_env.h"
 
-// Enable this macro if debugging.
-//#define D(...) {fprintf(stdout, __VA_ARGS__);}
+// Enable this macro if lots of debug logging is needed.
+//#define DBG
 
-#ifndef D
+
+
+#ifdef DBG
+#define D(...) {fprintf(stdout, __VA_ARGS__);}
+#else
 #define D(...)
 #endif
+
+
 
 #define MAX_MEM_QUOTA 0x10000000
 
@@ -143,6 +149,8 @@ static void wa_fd_write(dwac_data *d)
 	}
 
 	*nwritten_offset_ptr = n;
+
+	//snprintf(d->exception, sizeof(d->exception), "Not implemented: wa_fd_write");
 
 	// Push return value.
 	dwac_push_value_i64(d, WASI_ESUCCESS);
@@ -439,7 +447,7 @@ static void fd_close(dwac_data *d)
 
 	uint32_t fd = dwac_pop_value_i64(d);
 
-	assert(fd ==3); // TODO
+	assert(fd == 3); // TODO
 	D("fd_close %d\n", fd);
 	close(fd);
 
@@ -810,33 +818,25 @@ static void log_block_stack(const dwac_prog *p, dwac_data *d)
 		if (e == NULL) {break;}
 		switch(e->block_type_code)
 		{
-			// TODO Would be nice to print function names.
 			case dwac_block_type_internal_func:
 			case dwac_block_type_imported_func:
 			{
-				const char* func_name = dwac_linear_storage_size_get_const(&p->func_names, e->func_info.func_idx);
-				if (func_name)
-				{
-					#if 0
-					char tmp[256];
-					const dwac_func_type_type *type = dwac_get_func_type_ptr(p, e->func_type_idx);
-					assert(type);
-					dwac_func_type_to_string(tmp, sizeof(tmp), type);
-					printf("  %s %d %s\n", func_name, e->func_info.func_idx, tmp);
-					#else
-					printf("  %s\n", func_name);
-					#endif
-				}
-				else
-				{
-					printf("  function index %d\n", e->func_info.func_idx);
-				}
+				printf("%4d %s\n", e->func_info.func_idx, dwac_get_func_name(p, e->func_info.func_idx));
 				break;
 			}
 			default:
 				break;
 		}
 	}
+	if (p->func_names.size == 0)
+	{
+		printf("Recompile guest app with '-g' option for call stack with names:\n");
+	}
+}
+#else
+static void log_block_stack(const dwac_prog *p, dwac_data *d)
+{
+	printf("Hint: Recompile dwac/dwae with LOG_FUNC_NAMES macro to display call stack.\n");
 }
 #endif
 
