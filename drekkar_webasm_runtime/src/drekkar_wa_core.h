@@ -724,5 +724,8 @@ int32_t dwac_pop_value_i64(dwac_data *d);
 const dwac_func_type_type* dwac_get_func_type_ptr(const dwac_prog *p, int32_t type_idx);
 long dwac_call_exported_function(const dwac_prog *p, dwac_data *d, uint32_t func_idx);
 const char* dwac_get_func_name(const dwac_prog *p, long function_idx);
+long long dwac_total_memory_usage(dwac_data *d);
+long dwac_report_result(const dwac_prog *p, dwac_data *d, const dwac_function *f, FILE* log);
+void dwac_log_block_stack(const dwac_prog *p, dwac_data *d);
 
 #endif

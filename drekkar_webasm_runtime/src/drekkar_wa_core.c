@@ -3939,7 +3939,8 @@ static void* find_imported_function(const dwac_prog *p, const char *name)
 	return dwac_hash_list_find(&p->available_functions_list, name);
 }
 
-// TODO Perhaps split this code so we can initialize data more than once for same prog.
+// TODO Perhaps take a pointer to dwac_data instead of "char *exception, size_t exception_size".
+// We need some dwac_data in "Element Section" anyway.
 long dwac_parse_prog_sections(dwac_prog *p, const uint8_t *bytes, uint32_t byte_count, char *exception, size_t exception_size, FILE* log)
 {
 	D("dwac_parse_prog_sections %d\n", byte_count);
@@ -4708,6 +4709,82 @@ void dwac_register_function(dwac_prog *p, const char *name, dwac_func_ptr ptr)
 {
 	dwac_hash_list_put(&p->available_functions_list, name, ptr);
 }
+
+long long dwac_total_memory_usage(dwac_data *d)
+{
+	return d->memory.lower_mem.capacity +
+	(d->memory.upper_mem.end - d->memory.upper_mem.begin) +
+	d->memory.arguments.capacity +
+	(d->globals.capacity * 8) +
+	(d->block_stack.capacity * sizeof(dwac_block_stack_entry)) +
+	DWAC_STACK_SIZE * 8 +
+	d->pc.nof;
+}
+
+long dwac_report_result(const dwac_prog *p, dwac_data *d, const dwac_function *f, FILE* log)
+{
+	D("report_result\n");
+	assert(log);
+	long ret_val = 0;
+	// If the called function had a return value it should be on the stack.
+	// Log the values on stack.
+	fprintf(log, "Stack: %u\n", d->sp + DWAC_SP_OFFSET);
+	while (d->sp != DWAC_SP_INITIAL) {
+		const dwac_func_type_type* type = dwac_get_func_type_ptr(p, f->func_type_idx);
+		uint32_t nof_results = type->nof_results;
+		if (d->sp < nof_results)
+		{
+			dwac_value_type *v = &d->stack[d->sp];
+			uint8_t t = type->results_list[d->sp];
+			char tmp[64];
+			dwac_value_and_type_to_string(tmp, sizeof(tmp), v, t);
+			fprintf(log, "  %s\n", tmp);
+		}
+		else
+		{
+			fprintf(log, "  0x%llx\n", (long long)d->stack[d->sp].s64);
+		}
+		ret_val = d->stack[d->sp].s64;
+		d->sp--;
+	}
+	assert(d->exception[sizeof(d->exception)-1]==0);
+	d->exception[0] = 0;
+	fprintf(log, "Return value from guest: %ld\n", ret_val);
+	return ret_val;
+}
+
+#ifdef LOG_FUNC_NAMES
+void dwac_log_block_stack(const dwac_prog *p, dwac_data *d)
+{
+	printf("call stack:\n");
+	for(;;)
+	{
+		dwac_block_stack_entry *e = dwac_linear_storage_size_pop(&d->block_stack);
+		if (e == NULL) {break;}
+		switch(e->block_type_code)
+		{
+			case dwac_block_type_internal_func:
+			case dwac_block_type_imported_func:
+			{
+				printf("%4d %s\n", e->func_info.func_idx, dwac_get_func_name(p, e->func_info.func_idx));
+				break;
+			}
+			default:
+				break;
+		}
+	}
+	if (p->func_names.size == 0)
+	{
+		printf("Recompile guest app with '-g' option for call stack with names:\n");
+	}
+}
+#else
+void dwac_log_block_stack(const dwac_prog *p, dwac_data *d)
+{
+	printf("Hint: Recompile dwac/dwae with LOG_FUNC_NAMES macro to display call stack.\n");
+}
+#endif
+
 
 void dwac_prog_deinit(dwac_prog *p)
 {
