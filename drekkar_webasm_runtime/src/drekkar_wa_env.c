@@ -583,7 +583,7 @@ static void syscall_stat64(dwac_data *d)
 	dwac_push_value_i64(d, r);
 }
 
-// Not tested.
+// Not implemented.
 // 'env/__syscall_lstat64' param i32 i32, result i32'
 // int __syscall_lstat64(intptr_t path, intptr_t buf);
 static void syscall_lstat64(dwac_data *d)
@@ -600,7 +600,7 @@ static void syscall_lstat64(dwac_data *d)
 }
 
 
-// Not tested.
+// Not implemented.
 // 'env/__syscall_fstatat64' param i32 i32 i32 i32, result i32'
 //  (import "env" "__syscall_fstatat64" (func $fimport$12 (param i32 i32 i32 i32) (result i32)))
 static void syscall_fstatat64(dwac_data *d)
@@ -618,7 +618,7 @@ static void syscall_fstatat64(dwac_data *d)
 	dwac_push_value_i64(d, 0);
 }
 
-// Not tested.
+// Not implemented.
 // 'wasi_snapshot_preview1/fd_seek' param i32 i32 i32 i32 i32, result i32'
 static void fd_seek(dwac_data *d)
 {
@@ -699,7 +699,32 @@ static void register_functions(dwac_prog *p)
 	dwac_register_function(p, "drekkar/log_empty_line", log_empty_line);
 }
 
-
+static long check_exception(const dwac_prog *p, dwac_data *d, long r)
+{
+	if ((r != DWAC_NEED_MORE_GAS) && (r != DWAC_OK))
+	{
+		printf("exception %ld '%s'\n", r, d->exception);
+		assert(d->exception[sizeof(d->exception)-1]==0);
+		dwac_log_block_stack(p, d);
+		d->exception[0] = 0;
+	}
+	else if (d->exception[0] != 0)
+	{
+		printf("Unhandled exception '%s'\n", d->exception);
+		assert(d->exception[sizeof(d->exception)-1]==0);
+		dwac_log_block_stack(p, d);
+		d->exception[0] = 0;
+		return DWAC_EXCEPTION;
+	}
+	else if (dwac_total_memory_usage(d) > MAX_MEM_QUOTA)
+	{
+		printf("To much memory used %lld > %d\n", dwac_total_memory_usage(d), MAX_MEM_QUOTA);
+		assert(d->exception[sizeof(d->exception)-1]==0);
+		dwac_log_block_stack(p, d);
+		return DWAC_MAX_MEM_QUOTA_EXCEEDED;
+	}
+	return r;
+}
 
 static long set_command_line_arguments(dwac_env_type *e)
 {
@@ -719,66 +744,24 @@ static long set_command_line_arguments(dwac_env_type *e)
 	{
 		// Provide arguments to the main function as argc/argv.
 		e->argv[0] = e->file_name;
-		const long r = dwac_set_command_line_arguments(e->d, e->argc, e->argv);
-		assert(e->d->exception[sizeof(e->d->exception)-1]==0);
-		if (r)
-		{
-			printf("exception: %ld %s\n", r, e->d->exception);
-			e->d->exception[0] = 0;
-		}
-		else if (e->d->exception[0] != 0)
-		{
-			printf("Unhandled exception: %s\n", e->d->exception);
-			e->d->exception[0] = 0;
-		}
+		long r = dwac_set_command_line_arguments(e->d, e->argc, e->argv);
+		r = check_exception(e->p, e->d, r);
 		return r;
 	}
 }
 
-
-static long check_exception(const dwac_prog *p, dwac_data *d, long r)
-{
-	if ((r != DWAC_NEED_MORE_GAS) && (r != DWAC_OK))
-	{
-		printf("exception %ld '%s'\n", r, d->exception);
-		assert(d->exception[sizeof(d->exception)-1]==0);
-		dwac_log_block_stack(p, d);
-		d->exception[0] = 0;
-	}
-	else if (d->exception[0] != 0)
-	{
-		printf("Unhandled exception '%s'\n", d->exception);
-		dwac_log_block_stack(p, d);
-		d->exception[0] = 0;
-		return DWAC_EXCEPTION;
-	}
-	else if (dwac_total_memory_usage(d) > MAX_MEM_QUOTA)
-	{
-		printf("To much memory used %lld > %d\n", dwac_total_memory_usage(d), MAX_MEM_QUOTA);
-		dwac_log_block_stack(p, d);
-		return DWAC_MAX_MEM_QUOTA_EXCEEDED;
-	}
-	return r;
-}
-
-static long parse_prog_sections(dwac_prog *p, uint8_t *bytes, size_t file_size, char* exception, size_t size_exception, FILE *log)
+static long parse_prog_sections(dwac_prog *p, dwac_data *d, uint8_t *bytes, size_t file_size, FILE *log)
 {
 	D("parse_prog_sections\n");
-	const long r = dwac_parse_prog_sections(p, bytes, file_size, exception, size_exception, log);
-	if ((r != 0) || (exception[0] != 0))
-	{
-		printf("exception: %lld '%s'\n", (long long)r, exception);
-	}
-	return r;
+	const long r = dwac_parse_prog_sections(p, d, bytes, file_size, log);
+	return check_exception(p, d, r);
 }
 
 static long parse_data_sections(const dwac_prog *p, dwac_data *d)
 {
 	D("parse_data_sections\n");
-
-	long r = dwac_parse_data_sections(p, d);
-	r = check_exception(p, d, r);
-	return r;
+	const long r = dwac_parse_data_sections(p, d);
+	return check_exception(p, d, r);;
 }
 
 static long call_and_run_exported_function(const dwac_prog *p, dwac_data *d, const dwac_function *f, FILE* log)
@@ -834,7 +817,6 @@ static long call_ctors(const dwac_prog *p, dwac_data *d)
 	{
 		return dwac_call_exported_function(p, d, f->func_idx);
 	}
-
 	return DWAC_OK;
 }
 
@@ -887,7 +869,6 @@ long dwae_init(dwac_env_type *e)
 {
 	D("dwae_init\n");
 	long r = 0;
-	char exception[256] = {0};
 
 	dwac_st_init();
 	e->p = DWAC_ST_MALLOC(sizeof(dwac_prog));
@@ -912,14 +893,16 @@ long dwae_init(dwac_env_type *e)
 	}
 
 	dwac_prog_init(e->p);
+	dwac_data_init(e->d);
 
 	register_functions(e->p);
 
-	r = parse_prog_sections(e->p, e->bytes.array, file_size, exception, sizeof(exception), e->log);
-	assert(exception[sizeof(exception)-1]==0);
-	if (r) {dwac_prog_deinit(e->p); return r;}
-
-	dwac_data_init(e->d);
+	r = parse_prog_sections(e->p, e->d, e->bytes.array, file_size, e->log);
+	if (r)
+	{
+		dwae_deinit(e);
+		return r;
+	}
 
 	return r;
 }
