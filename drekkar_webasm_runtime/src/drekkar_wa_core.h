@@ -710,7 +710,7 @@ long dwac_value_and_type_to_string(char* buf, size_t size, const dwac_value_type
 long dwac_setup_function_call(const dwac_prog *p, dwac_data *d, uint32_t fidx);
 long dwac_tick(const dwac_prog *p, dwac_data *d);
 const dwac_function *dwac_find_exported_function(const dwac_prog *p, const char *name);
-long dwac_parse_prog_sections(dwac_prog *p, dwac_data *d, const uint8_t *bytes, uint32_t byte_count, FILE* log);
+long dwac_parse_prog_sections(dwac_prog *p, const uint8_t *bytes, uint32_t byte_count, char* exception, size_t exception_size, FILE* log);
 long dwac_parse_data_sections(const dwac_prog *p, dwac_data *d);
 void dwac_prog_init(dwac_prog *p);
 void dwac_prog_deinit(dwac_prog *p);
