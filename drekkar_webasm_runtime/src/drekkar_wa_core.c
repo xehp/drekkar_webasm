@@ -3926,9 +3926,7 @@ static long run_init_expr(const dwac_prog *p, dwac_data *d, uint8_t type, uint32
 // Returns NULL if not found.
 const dwac_function* dwac_find_exported_function(const dwac_prog *p, const char *name)
 {
-	// Find export index by name and return the value
-	const dwac_function *e = dwac_hash_list_find(&p->exported_functions_list, name);
-	return e;
+	return dwac_hash_list_find(&p->exported_functions_list, name);
 }
 
 // Find the address from its module name.
@@ -3941,7 +3939,7 @@ static void* find_imported_function(const dwac_prog *p, const char *name)
 
 // TODO Perhaps take a pointer to dwac_data instead of "char *exception, size_t exception_size".
 // We need some dwac_data in "Element Section" anyway.
-long dwac_parse_prog_sections(dwac_prog *p, const uint8_t *bytes, uint32_t byte_count, char *exception, size_t exception_size, FILE* log)
+long dwac_parse_prog_sections(dwac_prog *p, dwac_data *d, const uint8_t *bytes, uint32_t byte_count, FILE* log)
 {
 	D("dwac_parse_prog_sections %d\n", byte_count);
 
@@ -3958,7 +3956,7 @@ long dwac_parse_prog_sections(dwac_prog *p, const uint8_t *bytes, uint32_t byte_
 		D("Magic %08x %x\n", magic_word, magic_version);
 		if ((magic_word != DWAC_MAGIC) || (magic_version != DWAC_VERSION))
 		{
-			snprintf(exception, exception_size, "Not WebAsm or not supported version 0x%08x 0x%08x", magic_word, magic_version);
+			snprintf(d->exception, sizeof(d->exception), "Not WebAsm or not supported version 0x%08x 0x%08x", magic_word, magic_version);
 			return DWAC_NOT_WEBASM_OR_SUPPORTED_VERSION;
 		}
 	}
@@ -4054,7 +4052,7 @@ long dwac_parse_prog_sections(dwac_prog *p, const uint8_t *bytes, uint32_t byte_
 					type->nof_parameters = leb_read(&p->bytecodes, 32); // How many parameters a function will have.
 					if (type->nof_parameters > sizeof(type->parameters_list))
 					{
-						snprintf(exception, exception_size, "To many parameters %d\n", type->nof_parameters);
+						snprintf(d->exception, sizeof(d->exception), "To many parameters %d\n", type->nof_parameters);
 						return DWAC_TO_MANY_PARAMETERS;
 					}
 					for (uint32_t n = 0; n < type->nof_parameters; n++)
@@ -4064,7 +4062,7 @@ long dwac_parse_prog_sections(dwac_prog *p, const uint8_t *bytes, uint32_t byte_
 					type->nof_results = leb_read(&p->bytecodes, 32); // How many return values a function will have.
 					if (type->nof_results > sizeof(type->results_list))
 					{
-						snprintf(exception, exception_size, "To many result %d\n", type->nof_results);
+						snprintf(d->exception, sizeof(d->exception), "To many result %d\n", type->nof_results);
 						return DWAC_TO_MANY_RESULT_VALUES;
 					}
 					for (uint32_t r = 0; r < type->nof_results; r++)
@@ -4109,7 +4107,7 @@ long dwac_parse_prog_sections(dwac_prog *p, const uint8_t *bytes, uint32_t byte_
 
 							if ((import_module_size + 1 + import_field_size) > DWAC_HASH_LIST_MAX_KEY_SIZE)
 							{
-								snprintf(exception, exception_size, "Name to long '%.256s'\n", import_field_ptr);
+								snprintf(d->exception, sizeof(d->exception), "Name to long '%.256s'\n", import_field_ptr);
 								return DWAC_EXPORT_NAME_TO_LONG;
 							}
 
@@ -4138,7 +4136,7 @@ long dwac_parse_prog_sections(dwac_prog *p, const uint8_t *bytes, uint32_t byte_
 							void *ptr = find_imported_function(p, m);
 							if (ptr == NULL)
 							{
-								snprintf(exception, exception_size, "Did not find '%s' %s", m, tmp);
+								snprintf(d->exception, sizeof(d->exception), "Did not find '%s' %s", m, tmp);
 								return DWAC_IMPORT_FIELD_NOT_FOUND;
 							}
 
@@ -4152,7 +4150,7 @@ long dwac_parse_prog_sections(dwac_prog *p, const uint8_t *bytes, uint32_t byte_
 						case DWAC_GLOBALTYPE:
 						default:
 						{
-							snprintf(exception, exception_size, "Importing %d, not yet supported '%.*s' '%.*s'\n", t, (int) import_module_size,
+							snprintf(d->exception, sizeof(d->exception), "Importing %d, not yet supported '%.*s' '%.*s'\n", t, (int) import_module_size,
 									import_module_ptr, (int) import_field_size, import_field_ptr);
 							return DWAC_UNKNOWN_TYPE_OF_IMPORT;
 							break;
@@ -4196,7 +4194,7 @@ long dwac_parse_prog_sections(dwac_prog *p, const uint8_t *bytes, uint32_t byte_
 				// Check also that we did not already get a table from Import(2) section.
 				if ((p->func_table.size != 0) || (nof_tables != 1))
 				{
-					snprintf(exception, exception_size, "Only one table is supported.\n");
+					snprintf(d->exception, sizeof(d->exception), "Only one table is supported.\n");
 					return DWAC_ONLY_ONE_TABLE_IS_SUPPORTED;
 				}
 
@@ -4240,7 +4238,7 @@ long dwac_parse_prog_sections(dwac_prog *p, const uint8_t *bytes, uint32_t byte_
 
 					if ((name==NULL) || (name_len > 64))
 					{
-						snprintf(exception, exception_size, "Name to long '%.*s'\n", (int)name_len, name);
+						snprintf(d->exception, sizeof(d->exception), "Name to long '%.*s'\n", (int)name_len, name);
 						return DWAC_EXPORT_NAME_TO_LONG;
 					}
 
@@ -4275,7 +4273,7 @@ long dwac_parse_prog_sections(dwac_prog *p, const uint8_t *bytes, uint32_t byte_
 							if (log) {fprintf(log, "Ignored export of global '%.*s' 0x%x\n", (int) name_len, name, index);}
 							break;
 						default:
-							snprintf(exception, exception_size, "Unknown type %d for '%.*s'.", type, (int) name_len, name);
+							snprintf(d->exception, sizeof(d->exception), "Unknown type %d for '%.*s'.", type, (int) name_len, name);
 							return DWAC_EXPORT_TYPE_NOT_IMPL_YET;
 					}
 				}
@@ -4289,8 +4287,6 @@ long dwac_parse_prog_sections(dwac_prog *p, const uint8_t *bytes, uint32_t byte_
 				#ifndef PARSE_ELEMENTS_IN_DATA
 
 				// Need to run some script code in this section so need a runtime here.
-				dwac_data *d = DWAC_ST_MALLOC(sizeof(dwac_data));
-				dwac_data_init(d);
 				leb128_reader_init(&d->pc, p->bytecodes.array, p->bytecodes.nof);
 				d->pc.pos = p->bytecodes.pos;
 
@@ -4323,8 +4319,6 @@ long dwac_parse_prog_sections(dwac_prog *p, const uint8_t *bytes, uint32_t byte_
 				}
 				p->bytecodes.pos += section_len;
 				assert(p->bytecodes.pos == d->pc.pos);
-				dwac_data_deinit(d, log);
-				DWAC_ST_FREE(d);
 				#else
 				p->bytecodes.pos += section_len;
 				#endif
@@ -4335,7 +4329,7 @@ long dwac_parse_prog_sections(dwac_prog *p, const uint8_t *bytes, uint32_t byte_
 				uint32_t nof_code_entries = leb_read(&p->bytecodes, 32);
 				if ((nof_code_entries + p->funcs_vector.nof_imported) > p->funcs_vector.total_nof)
 				{
-					snprintf(exception, exception_size, "To many code entries. %d %d %d.", nof_code_entries, p->funcs_vector.nof_imported, p->funcs_vector.total_nof);
+					snprintf(d->exception, sizeof(d->exception), "To many code entries. %d %d %d.", nof_code_entries, p->funcs_vector.nof_imported, p->funcs_vector.total_nof);
 					return DWAC_OUT_OF_RANGE_IN_CODE_SECTION;
 				}
 
@@ -4387,7 +4381,7 @@ long dwac_parse_prog_sections(dwac_prog *p, const uint8_t *bytes, uint32_t byte_
 					// Ref [3] did this extra check here, why not, doing so also.
 					if (bytes[f->internal_function.end_addr] != 0x0b)
 					{
-						snprintf(exception, exception_size, "Missing end opcode at 0x%x.", f->internal_function.end_addr);
+						snprintf(d->exception, sizeof(d->exception), "Missing end opcode at 0x%x.", f->internal_function.end_addr);
 						return DWAC_MISSING_OPCODE_END;
 					}
 
@@ -4401,13 +4395,13 @@ long dwac_parse_prog_sections(dwac_prog *p, const uint8_t *bytes, uint32_t byte_
 				p->bytecodes.pos += section_len;
 				break;
 			default:
-				snprintf(exception, exception_size, "Section %d unimplemented\n", section_id);
+				snprintf(d->exception, sizeof(d->exception), "Section %d unimplemented\n", section_id);
 				return DWAC_UNKNOWN_SECTION;
 				p->bytecodes.pos += section_len;
 		}
 		if (p->bytecodes.pos != (section_begin + section_len))
 		{
-			snprintf(exception, exception_size, "Section %d did not add up, %u + %u != %llu\n", section_id, section_begin, section_len, (long long unsigned)p->bytecodes.pos);
+			snprintf(d->exception, sizeof(d->exception), "Section %d did not add up, %u + %u != %llu\n", section_id, section_begin, section_len, (long long unsigned)p->bytecodes.pos);
 			return DWAC_MISALLIGNED_SECTION;
 		}
 	}
