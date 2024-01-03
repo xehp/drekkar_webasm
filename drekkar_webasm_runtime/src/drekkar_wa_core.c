@@ -333,7 +333,14 @@ void* dwac_st_resize(void* ptr, size_t old_size, size_t new_size, const char *fi
 	#ifdef DWAC_ST_DEBUG
 	remove_from_linked_list((header*)old_ptr, file, line);
 	#endif
+	#if 0
 	uint8_t *new_ptr = realloc(old_ptr, new_size_inc_header_footer);
+	#else
+	uint8_t *new_ptr = malloc(new_size_inc_header_footer);
+	memcpy(new_ptr + ST_HEADER_SIZE, old_ptr + ST_HEADER_SIZE, old_size);
+	free(old_ptr);
+	old_ptr = NULL;
+	#endif
 	assert(new_ptr != 0);
 	#ifdef ST_DEBUG_FILL_PATTERN
 	if (new_size > old_size)
