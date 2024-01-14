@@ -596,15 +596,15 @@ void dwac_linear_storage_64_deinit(dwac_linear_storage_64_type* s)
 	memset(s, 0, sizeof(*s));
 }
 
-static void linear_storage_64_grow_buffer_if_needed(dwac_linear_storage_64_type *s, size_t needed_size)
+static void linear_storage_64_grow_buffer_if_needed(dwac_linear_storage_64_type *s, size_t needed_capacity)
 {
-	if (needed_size > s->capacity)
+	if (needed_capacity > s->capacity)
 	{
 		// There is not enough space.
 		if (s->capacity == 0)
 		{
 			// No list yet, create the first list.
-			s->capacity = needed_size;
+			s->capacity = needed_capacity;
 			s->array = DWAC_ST_MALLOC(s->capacity * sizeof(uint64_t));
 			memset(s->array, 0, s->capacity * sizeof(uint64_t));
 		}
@@ -613,9 +613,9 @@ static void linear_storage_64_grow_buffer_if_needed(dwac_linear_storage_64_type 
 			// Need to make a bigger list. Make it at least twice bigger
 			// so that we dont need to resize too often.
 			long new_capacity = s->capacity * 2;
-			while(new_capacity < needed_size) {new_capacity *=2;}
+			if (new_capacity < needed_capacity) {new_capacity = needed_capacity;}
 			s->array = DWAC_ST_RESIZE(s->array, s->capacity  * sizeof(uint64_t), new_capacity * sizeof(uint64_t));
-			memset(s->array + (s->capacity * sizeof(uint64_t)), 0, (new_capacity - s->capacity) * sizeof(uint64_t));
+			for(size_t i = s->capacity; i <new_capacity; ++i) {s->array[i]=0;}
 			s->capacity = new_capacity;
 		}
 	}
