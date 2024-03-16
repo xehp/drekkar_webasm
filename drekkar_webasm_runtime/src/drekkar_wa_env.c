@@ -156,12 +156,12 @@ static void wa_fd_write(dwac_data *d)
 	dwac_push_value_i64(d, WASI_ESUCCESS);
 }
 
-// void memcpy_big(uint32_t dest, uint32_t src, uint32_t num);
+// int32_t emscripten_memcpy_big(int32_t dest, int32_t src, int32_t num);
 // (import "env" "emscripten_memcpy_big" (func $fimport$1 (param i32 i32 i32) (result i32)))
 static void memcpy_big(dwac_data *d)
 {
 	if (!is_param_ok(d, 3)) {return;}
-	long n = 0;
+	//long n = 0;
 
     // POP last parameter first.
 	uint32_t num = dwac_pop_value_i64(d);
@@ -314,9 +314,9 @@ static void syscall_fcntl64(dwac_data *d)
 {
 	if (!is_param_ok(d, 3)) {return;}
 
-	uint32_t p2 = dwac_pop_value_i64(d);
-	uint32_t p1 = dwac_pop_value_i64(d);
-	uint32_t p0 = dwac_pop_value_i64(d);
+	/*uint32_t p2 =*/ dwac_pop_value_i64(d);
+	/*uint32_t p1 =*/ dwac_pop_value_i64(d);
+	/*uint32_t p0 =*/ dwac_pop_value_i64(d);
 
 	// TODO
 	snprintf(d->exception, sizeof(d->exception), "Not implemented: env/__syscall_fcntl64");
@@ -460,8 +460,8 @@ static void syscall_getcwd(dwac_data *d)
 {
 	if (!is_param_ok(d, 2)) {return;}
 
-	uint32_t p1 = dwac_pop_value_i64(d);
-	uint32_t p0 = dwac_pop_value_i64(d);
+	/*uint32_t p1 =*/ dwac_pop_value_i64(d);
+	/*uint32_t p0 =*/ dwac_pop_value_i64(d);
 
 	// TODO
 	snprintf(d->exception, sizeof(d->exception), "Not implemented: env/__syscall_getcwd");
@@ -496,8 +496,8 @@ static void syscall_fstat64(dwac_data *d)
 {
 	if (!is_param_ok(d, 2)) {return;}
 
-	uint32_t p1 = dwac_pop_value_i64(d);
-	uint32_t p0 = dwac_pop_value_i64(d);
+	/*uint32_t p1 =*/ dwac_pop_value_i64(d);
+	/*uint32_t p0 =*/ dwac_pop_value_i64(d);
 
 	// TODO
 	snprintf(d->exception, sizeof(d->exception), "Not implemented: env/__syscall_fstat64");
@@ -590,8 +590,8 @@ static void syscall_lstat64(dwac_data *d)
 {
 	if (!is_param_ok(d, 2)) {return;}
 
-	uint32_t p1 = dwac_pop_value_i64(d);
-	uint32_t p0 = dwac_pop_value_i64(d);
+	/*uint32_t p1 =*/ dwac_pop_value_i64(d);
+	/*uint32_t p0 =*/ dwac_pop_value_i64(d);
 
 	// TODO
 	snprintf(d->exception, sizeof(d->exception), "Not implemented: env/__syscall_lstat64");
@@ -607,10 +607,10 @@ static void syscall_fstatat64(dwac_data *d)
 {
 	if (!is_param_ok(d, 4)) {return;}
 
-	uint32_t p3 = dwac_pop_value_i64(d);
-	uint32_t p2 = dwac_pop_value_i64(d);
-	uint32_t p1 = dwac_pop_value_i64(d);
-	uint32_t p0 = dwac_pop_value_i64(d);
+	/*uint32_t p3 =*/ dwac_pop_value_i64(d);
+	/*uint32_t p2 =*/ dwac_pop_value_i64(d);
+	/*uint32_t p1 =*/ dwac_pop_value_i64(d);
+	/*uint32_t p0 =*/ dwac_pop_value_i64(d);
 
 	// TODO
 	snprintf(d->exception, sizeof(d->exception), "Not implemented: env/__syscall_fstatat64");
@@ -624,11 +624,11 @@ static void fd_seek(dwac_data *d)
 {
 	if (!is_param_ok(d, 5)) {return;}
 
-	uint32_t p4 = dwac_pop_value_i64(d);
-	uint32_t p3 = dwac_pop_value_i64(d);
-	uint32_t p2 = dwac_pop_value_i64(d);
-	uint32_t p1 = dwac_pop_value_i64(d);
-	uint32_t p0 = dwac_pop_value_i64(d);
+	/*uint32_t p4 =*/ dwac_pop_value_i64(d);
+	/*uint32_t p3 =*/ dwac_pop_value_i64(d);
+	/*uint32_t p2 =*/ dwac_pop_value_i64(d);
+	/*uint32_t p1 =*/ dwac_pop_value_i64(d);
+	/*uint32_t p0 =*/ dwac_pop_value_i64(d);
 
 	// TODO
 	snprintf(d->exception, sizeof(d->exception), "Not implemented: wasi_snapshot_preview1/fd_seek");

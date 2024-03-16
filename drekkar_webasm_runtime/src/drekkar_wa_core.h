@@ -44,8 +44,8 @@
 //    MINOR version when you add functionality in a backward compatible manner
 //    PATCH version when you make backward compatible bug fixes
 // Warning! We do not follow this at early stages when major is 0.
-#define DREKKAR_VERSION_MAJOR 0
-#define DREKKAR_VERSION_MINOR 16
+#define DREKKAR_VERSION_MAJOR 1
+#define DREKKAR_VERSION_MINOR 0
 #define DREKKAR_VERSION_PATCH 0
 
 
