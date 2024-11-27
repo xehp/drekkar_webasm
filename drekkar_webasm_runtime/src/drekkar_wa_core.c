@@ -1112,6 +1112,19 @@ uint8_t dwac_virtual_storage_get_uint8_t(dwac_virtual_storage_type *s, size_t of
 // in either unsigned or signed variant.
 
 
+// Unpack a 64 bit value from a little endian byte buffer.
+static uint64_t decode64_le(const uint8_t *buf)
+{
+	return (uint64_t)buf[7] << 56LL | (uint64_t)buf[6] << 48LL | (uint64_t)buf[5] << 40LL | (uint64_t)buf[4] << 32LL | (uint64_t)buf[3] << 24LL | (uint64_t)buf[2] << 16LL | (uint64_t)buf[1] << 8LL | (uint64_t)buf[0];
+}
+
+// Unpack a 32 bit value from a little endian byte buffer.
+static uint32_t decode32_le(const uint8_t *buf)
+{
+	return (uint32_t)buf[3] << 24 | (uint32_t)buf[2] << 16 | (uint32_t)buf[1] << 8 | (uint32_t)buf[0];
+}
+
+
 
 static void leb128_reader_init(dwac_leb128_reader_type *r, const uint8_t* bytes, size_t size)
 {
@@ -1169,19 +1182,25 @@ static int64_t leb_read_signed(dwac_leb128_reader_type *r, uint32_t max_bits)
 	return result;
 }
 
-// TODO This might fail on a big endian host.
 static uint32_t leb_read_uint32(dwac_leb128_reader_type *r)
 {
+	#ifdef __LITTLE_ENDIAN__
     const uint32_t v = *((const uint32_t*) (r->array + r->pos));
+	#else
+	const uint32_t v = decode32_le(r->array + r->pos);
+	#endif
     r->pos += 4;
     return v;
 }
 
 #ifndef SKIP_FLOAT
-// TODO This might fail on a big endian host.
 static uint64_t leb_read_uint64(dwac_leb128_reader_type *r)
 {
+	#ifdef __LITTLE_ENDIAN__
     const uint64_t v = *((const uint64_t*) (r->array + r->pos));
+	#else
+	const uint64_t v = decode64_le(r->array + r->pos);
+	#endif
     r->pos += 8;
     return v;
 }
