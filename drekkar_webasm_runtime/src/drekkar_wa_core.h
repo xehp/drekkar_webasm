@@ -389,8 +389,10 @@ struct dwac_leb128_reader_type
 #define DWAC_ARGUMENTS_BASE 0xFF000000
 #define DWAC_MAX_NOF_PAGES (DWAC_ARGUMENTS_BASE / 0x10000)
 
+// Web assembly use 32 bit pointers, so 4 bytes.
+#define DWAC_PTR_SIZE 4
 
-enum {
+typedef enum {
 	DWAC_OK = 0,
 	DWAC_NEED_MORE_GAS,
 	DWAC_STACK_OVERFLOW,
@@ -485,7 +487,7 @@ enum {
 	DWAC_ADDR_OUT_OF_RANGE,
 	DWAC_TABLE_INSTRUCTIONS_NOT_SUPPORTED,
 	DWAC_SATURATING_NOT_SUPPORTED_YET,
-};
+} dwac_result;
 
 typedef struct dwac_data dwac_data;
 
@@ -566,7 +568,7 @@ typedef struct dwac_func_type_type
 	uint32_t nof_parameters;
 	uint8_t parameters_list[32]; // Max 32 parameters.
 	uint32_t nof_results; // Number of return values.
-	uint8_t results_list[8]; // Max 8 return values.
+	uint8_t results_list[8]; // Max 8 return values (only 1 is tested).
 } dwac_func_type_type;
 
 // The type for function pointers to imported functions.
@@ -703,26 +705,30 @@ struct dwac_data
 	uint32_t errno_location;
 
 	char exception[256]; // If an error happens, additional info might be written here.
+
+	// Some additions for emscripten.
+	int dwac_emscripten_argc;
+	const char **dwac_emscripten_argv;
 };
 
 size_t dwac_func_type_to_string(char *buf, size_t size, const dwac_func_type_type *type);
-long dwac_value_and_type_to_string(char* buf, size_t size, const dwac_value_type *v, uint8_t t);
-long dwac_setup_function_call(const dwac_prog *p, dwac_data *d, uint32_t fidx);
-long dwac_tick(const dwac_prog *p, dwac_data *d);
+int dwac_value_and_type_to_string(char* buf, size_t size, const dwac_value_type *v, uint8_t t);
+dwac_result dwac_setup_function_call(const dwac_prog *p, dwac_data *d, uint32_t fidx);
+dwac_result dwac_tick(const dwac_prog *p, dwac_data *d);
 const dwac_function *dwac_find_exported_function(const dwac_prog *p, const char *name);
-long dwac_parse_prog_sections(dwac_prog *p, dwac_data *d, const uint8_t *bytes, uint32_t byte_count, FILE* log);
-long dwac_parse_data_sections(const dwac_prog *p, dwac_data *d);
+dwac_result dwac_parse_prog_sections(dwac_prog *p, dwac_data *d, const uint8_t *bytes, uint32_t byte_count, FILE* log);
+dwac_result dwac_parse_data_sections(const dwac_prog *p, dwac_data *d);
 void dwac_prog_init(dwac_prog *p);
 void dwac_prog_deinit(dwac_prog *p);
 void dwac_data_init(dwac_data *d);
 void dwac_data_deinit(dwac_data *d, FILE* log);
-long dwac_set_command_line_arguments(dwac_data *d, uint32_t argc, const char **argv);
+dwac_result dwac_set_command_line_arguments(dwac_data *d, uint32_t argc, const char **argv);
 void* dwac_translate_to_host_addr_space(dwac_data *d, uint32_t offset, size_t size);
 void dwac_register_function(dwac_prog *p, const char* name, dwac_func_ptr ptr);
 void dwac_push_value_i64(dwac_data *d, int64_t v);
-int32_t dwac_pop_value_i64(dwac_data *d);
+int64_t dwac_pop_value_i64(dwac_data *d);
 const dwac_func_type_type* dwac_get_func_type_ptr(const dwac_prog *p, int32_t type_idx);
-long dwac_call_exported_function(const dwac_prog *p, dwac_data *d, uint32_t func_idx);
+dwac_result dwac_call_exported_function(const dwac_prog *p, dwac_data *d, uint32_t func_idx);
 const char* dwac_get_func_name(const dwac_prog *p, long function_idx);
 long long dwac_total_memory_usage(dwac_data *d);
 long dwac_report_result(const dwac_prog *p, dwac_data *d, const dwac_function *f, FILE* log);

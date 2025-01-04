@@ -620,20 +620,117 @@ static void syscall_fstatat64(dwac_data *d)
 
 // Not implemented.
 // 'wasi_snapshot_preview1/fd_seek' param i32 i32 i32 i32 i32, result i32'
-static void fd_seek(dwac_data *d)
+static void fd_seek(dwac_data *ctx)
 {
-	if (!is_param_ok(d, 5)) {return;}
+	if (!is_param_ok(ctx, 5)) {return;}
 
-	/*uint32_t p4 =*/ dwac_pop_value_i64(d);
-	/*uint32_t p3 =*/ dwac_pop_value_i64(d);
-	/*uint32_t p2 =*/ dwac_pop_value_i64(d);
-	/*uint32_t p1 =*/ dwac_pop_value_i64(d);
-	/*uint32_t p0 =*/ dwac_pop_value_i64(d);
+	/*uint32_t p4 =*/ dwac_pop_value_i64(ctx);
+	/*uint32_t p3 =*/ dwac_pop_value_i64(ctx);
+	/*uint32_t p2 =*/ dwac_pop_value_i64(ctx);
+	/*uint32_t p1 =*/ dwac_pop_value_i64(ctx);
+	/*uint32_t p0 =*/ dwac_pop_value_i64(ctx);
 
 	// TODO
-	snprintf(d->exception, sizeof(d->exception), "Not implemented: wasi_snapshot_preview1/fd_seek");
+	snprintf(ctx->exception, sizeof(ctx->exception), "Not implemented: wasi_snapshot_preview1/fd_seek");
 
-	dwac_push_value_i64(d, 0);
+	dwac_push_value_i64(ctx, 0);
+}
+
+static size_t wa_get_command_line_arguments_string_size(uint32_t argc, const char **argv)
+{
+	size_t tot_arg_size = 0;
+	for (int i = 0; i < argc; ++i)
+	{
+		tot_arg_size += (strlen(argv[i]) + 1);
+	}
+	return tot_arg_size;
+}
+
+// little endian
+static void put32(uint8_t *ptr, uint32_t v)
+{
+	ptr[0] = v;
+	ptr[1] = v >> 8;
+	ptr[2] = v >> 16;
+	ptr[3] = v >> 24;
+}
+
+// https://wasix.org/docs/api-reference/wasi/args_sizes_get
+static void args_sizes_get(dwac_data *ctx)
+{
+	if (!is_param_ok(ctx, 2)) {return;}
+
+	uint32_t argv_buf_size = dwac_pop_value_i64(ctx);
+	uint32_t argc = dwac_pop_value_i64(ctx);
+
+	uint32_t* argc_ptr = (uint32_t*)dwac_translate_to_host_addr_space(ctx, argc, 4);
+	uint32_t* argv_buf_size_ptr = (uint32_t*)dwac_translate_to_host_addr_space(ctx, argv_buf_size, 4);
+
+	*argc_ptr = ctx->dwac_emscripten_argc;
+	*argv_buf_size_ptr = wa_get_command_line_arguments_string_size(ctx->dwac_emscripten_argc, ctx->dwac_emscripten_argv);
+
+	printf("args_sizes_get %u %u %d %zu\n", argc, argv_buf_size, ctx->dwac_emscripten_argc, ctx->memory.arguments.size);
+
+	dwac_push_value_i64(ctx, 0);
+}
+
+// https://wasix.org/docs/api-reference/wasi/args_get
+static void args_get(dwac_data *ctx)
+{
+	if (!is_param_ok(ctx, 2)) {return;}
+
+	uint32_t argv_buf = dwac_pop_value_i64(ctx);
+	uint32_t argv = dwac_pop_value_i64(ctx);
+
+	printf("args_get %u %u\n", argv, argv_buf);
+
+	uint8_t* argv_ptr = (uint8_t*)dwac_translate_to_host_addr_space(ctx, argv, (DWAC_PTR_SIZE * ctx->dwac_emscripten_argc));
+
+	// Copy the strings over to guest memory.
+	for (int i = 0; i < ctx->dwac_emscripten_argc; ++i)
+	{
+		put32(argv_ptr + (DWAC_PTR_SIZE * i), argv_buf);
+		const uint32_t n = strlen(ctx->dwac_emscripten_argv[i]);
+		uint8_t *ptr = dwac_translate_to_host_addr_space(ctx, argv_buf, n);
+		memcpy(ptr, ctx->dwac_emscripten_argv[i], n);
+		argv_buf += n + 1;
+	}
+
+
+	//const uint32_t memory_reserved_by_compiler_location = DWAC_ARGUMENTS_BASE;
+	//uint8_t* memory_reserved_by_compiler_ptr = (uint8_t*)dwac_translate_to_host_addr_space(ctx, argv, (DWAC_PTR_SIZE * ctx->dwac_emscripten_argc) + ctx->dwac_emscripten_arg_string_size);
+
+	// Copy the strings over to guest memory.
+	// See also dwac_set_command_line_arguments.
+	// The below is a quick and dirty since pointers are not actually pointing to the data copied but
+	// still at the data copied from.
+	/*for(int i = 0; i < ctx->dwac_emscripten_argc; i++)
+	{
+		uint32_t n = *(memory_reserved_by_compiler_ptr + (i * DWAC_PTR_SIZE));
+		printf("n %u\n", (unsigned int)n);
+		*argv_ptr = n;
+	}*/
+	//memcpy(argv_ptr, memory_reserved_by_compiler_ptr, DWAC_PTR_SIZE * ctx->dwac_emscripten_argc);
+	//memcpy(argv_buf_ptr, memory_reserved_by_compiler_ptr + (DWAC_PTR_SIZE * ctx->dwac_emscripten_argc), ctx->arg_string_size_in_bytes);
+
+	dwac_push_value_i64(ctx, 0);
+}
+
+// https://wasix.org/docs/api-reference/wasi/proc_exit
+static void proc_exit(dwac_data *ctx)
+{
+	if (!is_param_ok(ctx, 1)) {return;}
+
+	int64_t exit_code = dwac_pop_value_i64(ctx);
+
+	snprintf(ctx->exception, sizeof(ctx->exception), "exit %lld", (long long int)exit_code);
+
+	// TODO Program shall exit with this code.
+	// exit(exit_code);
+	// But this is not great if more than one guest program is running.
+	// Will just put the result back on stack for now.
+
+	dwac_push_value_i64(ctx, exit_code);
 }
 
 #ifndef __EMSCRIPTEN__
@@ -671,6 +768,9 @@ static void register_functions(dwac_prog *p)
 	dwac_register_function(p, "wasi_snapshot_preview1/fd_read", fd_read);
 	dwac_register_function(p, "wasi_snapshot_preview1/fd_close", fd_close);
 	dwac_register_function(p, "wasi_snapshot_preview1/fd_seek", fd_seek);
+	dwac_register_function(p, "wasi_snapshot_preview1/args_sizes_get", args_sizes_get);
+	dwac_register_function(p, "wasi_snapshot_preview1/args_get", args_get);
+	dwac_register_function(p, "wasi_snapshot_preview1/proc_exit", proc_exit);
 
 	dwac_register_function(p, "env/__assert_fail", assert_fail);
 	dwac_register_function(p, "env/emscripten_memcpy_big", memcpy_big);

@@ -1487,7 +1487,7 @@ static const char* type_name(uint8_t t)
 }
 
 // Convert stack value to string representation with type.
-long dwac_value_and_type_to_string(char *buf, size_t size, const dwac_value_type *v, uint8_t t)
+int dwac_value_and_type_to_string(char *buf, size_t size, const dwac_value_type *v, uint8_t t)
 {
 	switch (t)
 	{
@@ -1825,11 +1825,11 @@ static uint32_t find_else_or_end(const dwac_prog *p, const dwac_data *d, uint32_
 // Parameters and local variables are pushed to stack.
 // Return address is pushed on block stack.
 // PC is set to the begin of the function.
-// Parameters: fidx is index to the function to be called.
+// Parameters: function_idx is index to the function to be called.
 //
 // If "gas metering" is not needed it would have been possible
 // to recursively call wa_tick instead of this block stack stuff.
-long dwac_setup_function_call(const dwac_prog *p, dwac_data *d, uint32_t function_idx)
+dwac_result dwac_setup_function_call(const dwac_prog *p, dwac_data *d, uint32_t function_idx)
 {
 	D("dwac_setup_function_call %d\n", function_idx);
 	if (function_idx < p->funcs_vector.nof_imported) {return DWAC_CAN_NOT_CALL_IMPORTED_HERE;}
@@ -1841,7 +1841,7 @@ long dwac_setup_function_call(const dwac_prog *p, dwac_data *d, uint32_t functio
 	const dwac_stack_pointer_signed_type stack_size = STACK_SIZE(d);
 	if (stack_size < type->nof_parameters)
 	{
-		snprintf(d->exception, sizeof(d->exception), "Insufficent nof parameters calling %u.", function_idx);
+		snprintf(d->exception, sizeof(d->exception), "Insufficient number of parameters calling %u.", function_idx);
 		return DWAC_INSUFFICIENT_PARRAMETERS_FOR_CALL;
 	}
 	const dwac_stack_pointer_type expected_sp_after_call = d->sp - type->nof_parameters; // not counting results here
@@ -1870,7 +1870,7 @@ long dwac_setup_function_call(const dwac_prog *p, dwac_data *d, uint32_t functio
 	return DWAC_OK;
 }
 
-static long call_imported_function(const dwac_prog *p, dwac_data *d, uint32_t function_idx)
+static dwac_result call_imported_function(const dwac_prog *p, dwac_data *d, uint32_t function_idx)
 {
 	D("call_imported_function %d\n", function_idx);
 	if (function_idx >= p->funcs_vector.nof_imported) {return DWAC_NOT_AN_IDX_OF_IMPORTED_FUNCTION;}
@@ -1924,7 +1924,7 @@ const char* dwac_get_func_name(const dwac_prog *p, long function_idx)
 
 // This is then main state event machine that runs the program.
 // Returns zero if OK
-long dwac_tick(const dwac_prog *p, dwac_data *d)
+dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 {
 	D("dwac_tick\n");
 
@@ -3965,7 +3965,7 @@ static void* find_imported_function(const dwac_prog *p, const char *name)
 
 // TODO Perhaps take a pointer to dwac_data instead of "char *exception, size_t exception_size".
 // We need some dwac_data in "Element Section" anyway.
-long dwac_parse_prog_sections(dwac_prog *p, dwac_data *d, const uint8_t *bytes, uint32_t byte_count, FILE* log)
+dwac_result dwac_parse_prog_sections(dwac_prog *p, dwac_data *d, const uint8_t *bytes, uint32_t byte_count, FILE* log)
 {
 	D("dwac_parse_prog_sections %d\n", byte_count);
 
@@ -4023,6 +4023,7 @@ long dwac_parse_prog_sections(dwac_prog *p, dwac_data *d, const uint8_t *bytes, 
 						switch(subsection_id)
 						{
 							case 1:
+							{
 								uint32_t n = leb_read(&p->bytecodes, 32);
 								for(int i = 0; i < n; i++)
 								{
@@ -4040,6 +4041,7 @@ long dwac_parse_prog_sections(dwac_prog *p, dwac_data *d, const uint8_t *bytes, 
 									dwac_linear_storage_size_set(&p->func_names, func_idx, tmp);
 								}
 								break;
+							}
 							default:
 								p->bytecodes.pos += subsection_len;
 								break;
@@ -4444,7 +4446,7 @@ long dwac_parse_prog_sections(dwac_prog *p, dwac_data *d, const uint8_t *bytes, 
 }
 
 
-long dwac_parse_data_sections(const dwac_prog *p, dwac_data *d)
+dwac_result dwac_parse_data_sections(const dwac_prog *p, dwac_data *d)
 {
 	D("dwac_parse_data_sections\n");
 
@@ -4663,7 +4665,7 @@ void dwac_push_value_i64(dwac_data *d, int64_t v)
 	PUSH_I64(d, v);
 }
 
-int32_t dwac_pop_value_i64(dwac_data *d)
+int64_t dwac_pop_value_i64(dwac_data *d)
 {
 	return POP_I64(d);
 }
@@ -4678,9 +4680,9 @@ static void put32(uint8_t *ptr, uint32_t v)
 	ptr[3] = v >> 24;
 }
 
-uint32_t wa_get_command_line_arguments_size(uint32_t argc, const char **argv)
+static size_t wa_get_command_line_arguments_size(uint32_t argc, const char **argv)
 {
-	uint32_t tot_arg_size = 0x10 + argc * 4;
+	size_t tot_arg_size = 0x10 + (argc * DWAC_PTR_SIZE);
 	for (int i = 0; i < argc; ++i)
 	{
 		tot_arg_size += strlen(argv[i]) + 1;
@@ -4688,35 +4690,39 @@ uint32_t wa_get_command_line_arguments_size(uint32_t argc, const char **argv)
 	return tot_arg_size;
 }
 
-long dwac_set_command_line_arguments(dwac_data *d, uint32_t argc, const char **argv)
+dwac_result dwac_set_command_line_arguments(dwac_data *d, uint32_t argc, const char **argv)
 {
-	int arg_size_in_bytes = wa_get_command_line_arguments_size(argc, argv);
+	const size_t arg_size_in_bytes = wa_get_command_line_arguments_size(argc, argv);
 	if (arg_size_in_bytes >= (0x100000000LL - DWAC_ARGUMENTS_BASE)) {return DWAC_TO_MUCH_ARGUMENTS;}
 	dwac_linear_storage_8_grow_if_needed(&d->memory.arguments, arg_size_in_bytes);
 	assert(d->memory.arguments.size >= wa_get_command_line_arguments_size(argc, argv));
 
 	const uint32_t memory_reserved_by_compiler = DWAC_ARGUMENTS_BASE;
 
-	uint32_t arg_pos = memory_reserved_by_compiler + (4 * argc);
+	uint32_t arg_pos = memory_reserved_by_compiler + (DWAC_PTR_SIZE * argc);
 
 	// If main have argument such as in "int main (int argc, char** args)"
-	// Then we here provide some input, zero arguments and a null pointer.
-	// Will place command line arguments in topmost memory.
+	// Then we here provide some input on the stack.
 	dwac_push_value_i64(d, argc);
 	dwac_push_value_i64(d, memory_reserved_by_compiler); // Pointer to the array with pointers.
 
 	for (int i = 0; i < argc; ++i)
 	{
-		put32(d->memory.arguments.array + (4 * i), arg_pos);
+		put32(d->memory.arguments.array + (DWAC_PTR_SIZE * i), arg_pos);
 		const uint32_t n = strlen(argv[i]);
 		uint8_t *ptr = translate_addr_grow_if_needed(d, arg_pos, n);
 		memcpy(ptr, argv[i], n);
 		arg_pos += n + 1;
 	}
+
+	// Some versions of Emscripten will instead of taking arguments from stack call args_sizes_get & args_get to get arguments.
+	d->dwac_emscripten_argc = argc;
+	d->dwac_emscripten_argv = argv;
+
 	return DWAC_OK;
 }
 
-long dwac_call_exported_function(const dwac_prog *p, dwac_data *d, uint32_t func_idx)
+dwac_result dwac_call_exported_function(const dwac_prog *p, dwac_data *d, uint32_t func_idx)
 {
 	long r = dwac_setup_function_call(p, d, func_idx);
 	if (r) {return r;}
