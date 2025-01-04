@@ -45,8 +45,8 @@
 //    PATCH version when you make backward compatible bug fixes
 // Warning! We do not follow this at early stages when major is 0.
 #define DREKKAR_VERSION_MAJOR 1
-#define DREKKAR_VERSION_MINOR 0
-#define DREKKAR_VERSION_PATCH 1
+#define DREKKAR_VERSION_MINOR 1
+#define DREKKAR_VERSION_PATCH 0
 
 
 #define DREKKAR_VERSION_STRING DREKKAR_VERSION_NAME " " DREKKAR_VER_XSTR(DREKKAR_VERSION_MAJOR) "." DREKKAR_VER_XSTR(DREKKAR_VERSION_MINOR) "." DREKKAR_VER_XSTR(DREKKAR_VERSION_PATCH)
