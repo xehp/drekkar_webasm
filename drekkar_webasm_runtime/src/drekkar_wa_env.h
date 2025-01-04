@@ -113,6 +113,6 @@ struct dwae_type
 };
 
 
-long dwae_init(dwac_env_type *e);
-long dwae_tick(dwac_env_type *e);
+dwac_result dwae_init(dwac_env_type *e);
+dwac_result dwae_tick(dwac_env_type *e);
 void dwae_deinit(dwac_env_type *);

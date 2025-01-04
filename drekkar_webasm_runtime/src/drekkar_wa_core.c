@@ -1923,7 +1923,8 @@ const char* dwac_get_func_name(const dwac_prog *p, long function_idx)
 #endif
 
 // This is then main state event machine that runs the program.
-// Returns zero if OK
+// Returns DWAC_OK or DWAC_NEED_MORE_GAS if OK.
+// Something else if not OK.
 dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 {
 	D("dwac_tick\n");

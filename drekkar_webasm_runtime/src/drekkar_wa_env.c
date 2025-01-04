@@ -799,7 +799,7 @@ static void register_functions(dwac_prog *p)
 	dwac_register_function(p, "drekkar/log_empty_line", log_empty_line);
 }
 
-static long check_exception(const dwac_prog *p, dwac_data *d, long r)
+static dwac_result check_exception(const dwac_prog *p, dwac_data *d, long r)
 {
 	if ((r != DWAC_NEED_MORE_GAS) && (r != DWAC_OK))
 	{
@@ -826,7 +826,7 @@ static long check_exception(const dwac_prog *p, dwac_data *d, long r)
 	return r;
 }
 
-static long set_command_line_arguments(dwac_env_type *e)
+static dwac_result set_command_line_arguments(dwac_env_type *e)
 {
 	D("set_command_line_arguments %d\n", e->argc);
 
@@ -844,7 +844,7 @@ static long set_command_line_arguments(dwac_env_type *e)
 	{
 		// Provide arguments to the main function as argc/argv.
 		e->argv[0] = e->file_name;
-		long r = dwac_set_command_line_arguments(e->d, e->argc, e->argv);
+		dwac_result r = dwac_set_command_line_arguments(e->d, e->argc, e->argv);
 		r = check_exception(e->p, e->d, r);
 		return r;
 	}
@@ -857,18 +857,18 @@ static long parse_prog_sections(dwac_prog *p, dwac_data *d, uint8_t *bytes, size
 	return check_exception(p, d, r);
 }
 
-static long parse_data_sections(const dwac_prog *p, dwac_data *d)
+static dwac_result parse_data_sections(const dwac_prog *p, dwac_data *d)
 {
 	D("parse_data_sections\n");
 	const long r = dwac_parse_data_sections(p, d);
 	return check_exception(p, d, r);;
 }
 
-static long call_and_run_exported_function(const dwac_prog *p, dwac_data *d, const dwac_function *f, FILE* log)
+static dwac_result call_and_run_exported_function(const dwac_prog *p, dwac_data *d, const dwac_function *f, FILE* log)
 {
 	D("call_and_run_exported_function\n");
 	long long total_gas_usage = 0;
-	long r = dwac_call_exported_function(p, d, f->func_idx);
+	dwac_result r = dwac_call_exported_function(p, d, f->func_idx);
 	for(;;)
 	{
 		total_gas_usage += (DWAC_GAS - d->gas_meter);
@@ -896,7 +896,7 @@ static long call_and_run_exported_function(const dwac_prog *p, dwac_data *d, con
 	return r;
 }
 
-static long call_errno(dwac_env_type *e)
+static dwac_result call_errno(dwac_env_type *e)
 {
 	D("call_errno\n");
 	const dwac_function* f = dwac_find_exported_function(e->p, "__errno_location");
@@ -909,7 +909,7 @@ static long call_errno(dwac_env_type *e)
 	return DWAC_OK;
 }
 
-static long call_ctors(const dwac_prog *p, dwac_data *d)
+static dwac_result call_ctors(const dwac_prog *p, dwac_data *d)
 {
 	D("call_ctors\n");
 	const dwac_function* f = dwac_find_exported_function(p, "__wasm_call_ctors");
@@ -932,10 +932,10 @@ static const dwac_function* find_main(const dwac_prog *p)
 	return f;
 }
 
-static long find_and_call(dwac_env_type *e)
+static dwac_result find_and_call(dwac_env_type *e)
 {
 	D("find_and_call\n");
-	long r = call_errno(e);
+	dwac_result r = call_errno(e);
 	r = check_exception(e->p, e->d, r);
 	if (r) {return r;}
 
@@ -964,8 +964,8 @@ static long find_and_call(dwac_env_type *e)
 	return call_and_run_exported_function(e->p, e->d, f, e->log);
 }
 
-// Returns zero (WA_OK) if OK.
-long dwae_init(dwac_env_type *e)
+// Returns zero (DWAC_OK) if OK.
+dwac_result dwae_init(dwac_env_type *e)
 {
 	D("dwae_init\n");
 	long r = 0;
@@ -1007,11 +1007,11 @@ long dwae_init(dwac_env_type *e)
 	return r;
 }
 
-long dwae_tick(dwac_env_type *e)
+dwac_result dwae_tick(dwac_env_type *e)
 {
 	D("dwae_tick\n");
 
-	long r = 0;
+	dwac_result r = 0;
 
 	r = parse_data_sections(e->p, e->d);
 	if (r) {return r;}

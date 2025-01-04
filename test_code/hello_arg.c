@@ -3,7 +3,9 @@ hello_arg.c
 
 Compile this with emscripten to then run in the WebAsm virtual machine.
 sudo apt-get install binaryen emscripten gcc-multilib g++-multilib libedit-dev:i386
-emcc hello_arg.c
+emcc hello_arg.c -g -o hello_arg.wasm
+../drekkar_webasm_runtime/drekkar_webasm_runtime hello_arg.wasm hello world
+
 
 To read compiled the binary code do:
 wasm-dis a.out.wasm
