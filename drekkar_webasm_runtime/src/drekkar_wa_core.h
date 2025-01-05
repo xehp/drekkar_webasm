@@ -46,7 +46,7 @@
 // Warning! We do not follow this at early stages when major is 0.
 #define DREKKAR_VERSION_MAJOR 1
 #define DREKKAR_VERSION_MINOR 1
-#define DREKKAR_VERSION_PATCH 2
+#define DREKKAR_VERSION_PATCH 3
 
 
 #define DREKKAR_VERSION_STRING DREKKAR_VERSION_NAME " " DREKKAR_VER_XSTR(DREKKAR_VERSION_MAJOR) "." DREKKAR_VER_XSTR(DREKKAR_VERSION_MINOR) "." DREKKAR_VER_XSTR(DREKKAR_VERSION_PATCH)
@@ -69,7 +69,7 @@
 #endif
 
 
-int64_t dwac_st_get_time_us();
+//int64_t dwac_st_get_time_us();
 void dwac_st_init();
 void dwac_st_deinit();
 
@@ -353,7 +353,7 @@ struct dwac_leb128_reader_type
 // NOTE Stack size must be a power of 2 since we use a mask to prevent
 // a stack overflow to write outside buffer. The stack can still overflow
 // but that way a stack over or under flow can't write outside the stack.
-#define DWAC_STACK_SIZE  0x10000
+#define DWAC_STACK_CAPACITY  0x10000
 
 // Fun story: When testing WA_STACK_SIZE larger than than 0x40000 it didn't work.
 // Turned out my test program placed the WaData on stack (host computers)
@@ -364,7 +364,7 @@ struct dwac_leb128_reader_type
 // Starting stack at -1 instead of 0 was an optimization found by examining ref [3].
 // So we need an initial value for the stack pointer that is not zero.
 #define DWAC_SP_OFFSET 1
-#if DWAC_STACK_SIZE == 0x10000
+#if DWAC_STACK_CAPACITY == 0x10000
 #define dwac_stack_pointer_type uint16_t
 #define dwac_stack_pointer_signed_type int16_t
 #define DWAC_SP_INITIAL ((uint16_t)(-1))
@@ -395,6 +395,7 @@ struct dwac_leb128_reader_type
 typedef enum {
 	DWAC_OK = 0,
 	DWAC_NEED_MORE_GAS,
+	DWAC_EXIT,
 	DWAC_STACK_OVERFLOW,
 	DWAC_BLOCKSTACK_OVERFLOW,
 	DWAC_BLOCKSTACK_UNDERFLOW,
@@ -689,7 +690,7 @@ struct dwac_data
 	// Main stack and stack pointer.
 	dwac_stack_pointer_type sp; // NOTE offset by minus DWAC_SP_OFFSET
 	dwac_stack_pointer_type fp;
-	dwac_value_type stack[DWAC_STACK_SIZE];
+	dwac_value_type stack[DWAC_STACK_CAPACITY];
 
 	// The call and block stack.
 	dwac_linear_storage_size_type block_stack; // Storage for entries of type dwac_block_stack_entry.
@@ -731,7 +732,7 @@ const dwac_func_type_type* dwac_get_func_type_ptr(const dwac_prog *p, int32_t ty
 dwac_result dwac_call_exported_function(const dwac_prog *p, dwac_data *d, uint32_t func_idx);
 const char* dwac_get_func_name(const dwac_prog *p, long function_idx);
 long long dwac_total_memory_usage(dwac_data *d);
-long dwac_report_result(const dwac_prog *p, dwac_data *d, const dwac_function *f, FILE* log);
+void dwac_log_result(const dwac_prog *p, const dwac_data *d, const dwac_function *f, FILE* log);
 void dwac_log_block_stack(const dwac_prog *p, dwac_data *d);
-
+int dwac_get_return_value(const dwac_data *d);
 #endif

@@ -59,6 +59,19 @@ Created October 2023 by Henrik
 #endif
 
 
+#ifdef DBG
+#include <sys/time.h>
+//extern int gettimeofday (struct timeval *__restrict __tv, void *) __THROW __nonnull ((1));
+int64_t get_posix_time_us()
+{
+	struct timeval t;
+	gettimeofday(&t, NULL);
+	const int64_t m = 1000000LL;
+	const int64_t us = (m*t.tv_sec)+t.tv_usec;
+	return us;
+}
+#endif
+
 
 #define MAX_MEM_QUOTA 0x10000000
 
@@ -721,16 +734,9 @@ static void proc_exit(dwac_data *ctx)
 {
 	if (!is_param_ok(ctx, 1)) {return;}
 
-	int64_t exit_code = dwac_pop_value_i64(ctx);
+	int64_t exit_code = dwac_get_return_value(ctx);
 
-	snprintf(ctx->exception, sizeof(ctx->exception), "exit %lld (not implemented yet)", (long long int)exit_code);
-
-	// TODO Program shall exit with this code.
-	exit(exit_code);
-	// But this is not great if more than one guest program is running.
-	// Will just put the result back on stack for now.
-
-	dwac_push_value_i64(ctx, exit_code);
+	snprintf(ctx->exception, sizeof(ctx->exception), "exit %lld", (long long int)exit_code);
 }
 
 #ifndef __EMSCRIPTEN__
@@ -756,6 +762,18 @@ static void syscall_getdents64(dwac_data *d)
 	dwac_push_value_i64(d, nread);
 }
 #endif
+
+// TODO Duplicate code see: dwac_report_result(p, d, f, log);
+static void log_data_stack(const dwac_data *d)
+{
+	#ifdef DBG
+	printf("data stack: %d %d\n", (int)(d->sp), (int)(d->fp));
+	for(int i=0; i < (d->sp + DWAC_SP_OFFSET); i++)
+	{
+		printf("  %lld 0x%llx\n", (long long int)(d->stack[i].s64), (long long unsigned)(d->stack[i].u64));
+	}
+	#endif
+}
 
 // To tell the runtime which functions we have available for it to call.
 // NOTE! If the guest is to be fully sand boxed some of the functions below
@@ -799,31 +817,46 @@ static void register_functions(dwac_prog *p)
 	dwac_register_function(p, "drekkar/log_empty_line", log_empty_line);
 }
 
-static dwac_result check_exception(const dwac_prog *p, dwac_data *d, long r)
+static dwac_result check_exception(const dwac_prog *p, dwac_data *d, dwac_result r)
 {
-	if ((r != DWAC_NEED_MORE_GAS) && (r != DWAC_OK))
+	assert(d->exception[sizeof(d->exception)-1]==0);
+	switch(r)
 	{
-		printf("exception %ld '%s'\n", r, d->exception);
-		assert(d->exception[sizeof(d->exception)-1]==0);
-		dwac_log_block_stack(p, d);
-		d->exception[0] = 0;
+		default:
+			log_data_stack(d);
+			if ((r == DWAC_EXCEPTION_FROM_IMPORTED_FUNCTION) && (memcmp("exit ", d->exception, 5) == 0))
+			{
+				dbg("exit %s\n", (d->exception + 5));
+				return DWAC_EXIT;
+			}
+			else
+			{
+				printf("exception %d '%s'\n", r, d->exception);
+				dwac_log_block_stack(p, d);
+				log_data_stack(d);
+			}
+			break;
+		case DWAC_OK:
+		case DWAC_EXIT:
+		case DWAC_NEED_MORE_GAS:
+			if (d->exception[0] != 0)
+			{
+				printf("Unhandled exception '%s'\n", d->exception);
+				dwac_log_block_stack(p, d);
+				log_data_stack(d);
+				return DWAC_EXCEPTION;
+			}
+			else if (dwac_total_memory_usage(d) > MAX_MEM_QUOTA)
+			{
+				printf("To much memory used %lld > %d\n", dwac_total_memory_usage(d), MAX_MEM_QUOTA);
+				dwac_log_block_stack(p, d);
+				log_data_stack(d);
+				return DWAC_MAX_MEM_QUOTA_EXCEEDED;
+			}
+			break;
 	}
-	else if (d->exception[0] != 0)
-	{
-		printf("Unhandled exception '%s'\n", d->exception);
-		assert(d->exception[sizeof(d->exception)-1]==0);
-		dwac_log_block_stack(p, d);
-		d->exception[0] = 0;
-		return DWAC_EXCEPTION;
-	}
-	else if (dwac_total_memory_usage(d) > MAX_MEM_QUOTA)
-	{
-		printf("To much memory used %lld > %d\n", dwac_total_memory_usage(d), MAX_MEM_QUOTA);
-		assert(d->exception[sizeof(d->exception)-1]==0);
-		dwac_log_block_stack(p, d);
-		return DWAC_MAX_MEM_QUOTA_EXCEEDED;
-	}
-	return r;
+	d->exception[0] = 0;
+	return DWAC_OK;
 }
 
 static dwac_result set_command_line_arguments(dwac_env_type *e)
@@ -873,24 +906,23 @@ static dwac_result call_and_run_exported_function(const dwac_prog *p, dwac_data 
 	{
 		total_gas_usage += (DWAC_GAS - d->gas_meter);
 		r = check_exception(p, d, r);
-		if (r == DWAC_NEED_MORE_GAS)
+		switch(r)
 		{
-			// Guest has more work to do. Let it continue some more.
-			r = dwac_tick(p, d);
-		}
-		else if (r == DWAC_OK)
-		{
-			// Guest is done.
-			if (log)
-			{
-				dwac_report_result(p, d, f, log);
-			    fprintf(log, "Total gas and memory usage: %lld %lld\n", total_gas_usage, dwac_total_memory_usage(d));
-			}
-			break;
-		}
-		else
-		{
-			return r;
+			case DWAC_NEED_MORE_GAS:
+				// Guest has more work to do. Let it continue some more.
+				r = dwac_tick(p, d);
+				break;
+			case DWAC_OK:
+			case DWAC_EXIT:
+				// Guest is done.
+				if (log)
+				{
+					dwac_log_result(p, d, f, log);
+					fprintf(log, "Total gas and memory usage: %lld %lld\n", total_gas_usage, dwac_total_memory_usage(d));
+				}
+				return r;
+			default:
+				return r;
 		}
 	}
 	return r;
@@ -967,6 +999,13 @@ static dwac_result find_and_call(dwac_env_type *e)
 // Returns zero (DWAC_OK) if OK.
 dwac_result dwae_init(dwac_env_type *e)
 {
+	#ifdef DBG
+	if (e->log == NULL)
+	{
+		e->log = stdout;
+	}
+	#endif
+
 	dbg("dwae_init\n");
 	dwac_result r = DWAC_OK;
 
@@ -1007,10 +1046,9 @@ dwac_result dwae_init(dwac_env_type *e)
 	return r;
 }
 
-dwac_result dwae_tick(dwac_env_type *e)
-{
-	dbg("dwae_tick\n");
 
+static dwac_result dwae_tick_etc(dwac_env_type *e)
+{
 	dwac_result r = DWAC_OK;
 
 	r = parse_data_sections(e->p, e->d);
@@ -1020,7 +1058,31 @@ dwac_result dwae_tick(dwac_env_type *e)
 	if (r) {return r;}
 
 	r = find_and_call(e);
-	if (r) {return r;}
+	return r;
+}
+
+dwac_result dwae_tick(dwac_env_type *e)
+{
+	#ifdef DBG
+	const int64_t start_us = get_posix_time_us();
+	dbg("dwae_tick start\n");
+	#endif
+
+	dwac_result r = dwae_tick_etc(e);
+
+	#ifdef DBG
+	const int64_t stop_us = get_posix_time_us();
+	dbg("dwae_tick done %d %lld\n", r, (long long)(stop_us-start_us));
+	switch(r)
+	{
+		case DWAC_OK:
+		case DWAC_EXIT:
+			dbg("ret_val %d\n", dwac_get_return_value(e->d));
+			break;
+		default:
+			break;
+	}
+	#endif
 
 	return r;
 }

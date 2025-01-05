@@ -1247,10 +1247,10 @@ static size_t leb_len(const uint8_t *ptr)
 
 // Some macros for convenient stack handling.
 
-#if (DWAC_STACK_SIZE == 0x10000) || (DWAC_STACK_SIZE == 0x100000000)
+#if (DWAC_STACK_CAPACITY == 0x10000) || (DWAC_STACK_CAPACITY == 0x100000000)
 #define SP_MASK(v) (v)
 #else
-#define SP_MASK(sp) ((sp) & (DWAC_STACK_SIZE - 1))
+#define SP_MASK(sp) ((sp) & (DWAC_STACK_CAPACITY - 1))
 #endif
 
 #if 1
@@ -1752,8 +1752,9 @@ static long get_oplen(const uint8_t *ptr)
 static uint32_t find_br_addr(const dwac_prog *p, const dwac_data *d, uint32_t pos)
 {
 	uint32_t level = 1;
-	while (level > 0)
+	for(;;)
 	{
+		dbg("find_br_addr %d\n", level);
 		switch (d->pc.array[pos])
 		{
 			case 0x02: // block
@@ -1786,8 +1787,9 @@ static uint32_t find_br_addr(const dwac_prog *p, const dwac_data *d, uint32_t po
 static uint32_t find_else_or_end(const dwac_prog *p, const dwac_data *d, uint32_t pos)
 {
 	uint32_t level = 1;
-	while (level > 0)
+	for(;;)
 	{
+		dbg("find_else_or_end %d\n", level);
 		switch (d->pc.array[pos])
 		{
 			case 0x02: // block
@@ -1881,7 +1883,7 @@ static dwac_result call_imported_function(const dwac_prog *p, dwac_data *d, uint
 	const dwac_stack_pointer_signed_type stack_size = STACK_SIZE(d);
 	if (stack_size < type->nof_parameters)
 	{
-		snprintf(d->exception, sizeof(d->exception), "Insufficent nof parameters calling %u.", function_idx);
+		snprintf(d->exception, sizeof(d->exception), "Insufficient nof parameters calling %u.", function_idx);
 		return DWAC_INSUFFICIENT_PARRAMETERS_FOR_CALL;
 	}
 	const dwac_stack_pointer_type expected_sp_after_call = d->sp - type->nof_parameters; // not counting results here
@@ -1930,7 +1932,7 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 	dbg("dwac_tick\n");
 
 	assert(d->block_stack.size != 0);
-	if (d->stack[DWAC_STACK_SIZE - 1].s64 != WA_MAGIC_STACK_VALUE) {return DWAC_STACK_OVERFLOW;}
+	if (d->stack[DWAC_STACK_CAPACITY - 1].s64 != WA_MAGIC_STACK_VALUE) {return DWAC_STACK_OVERFLOW;}
 	if (d->pc.pos >= d->pc.nof) {return DWAC_PC_ADDR_OUT_OF_RANGE;}
 	if (d->exception[0] !=  0) {return DWAC_EXCEPTION;}
 
@@ -2127,7 +2129,7 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 				// Restore stack pointer to what is was before block.
 				// The result if any is to remain on stack while local variables shall be dropped.
 				// So keep a number of entries on top of stack, drop everything in between.
-				#if DWAC_STACK_SIZE == 0x10000
+				#if DWAC_STACK_CAPACITY == 0x10000
 				int16_t entries_available_on_stack = (int16_t)(d->sp) - (int16_t)block->stack_pointer;
 				if (entries_available_on_stack >= t->nof_results)
 				{
@@ -2191,7 +2193,7 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 					default: break;
 				}
 
-				if (d->stack[DWAC_STACK_SIZE - 1].s64 != WA_MAGIC_STACK_VALUE) {return DWAC_STACK_OVERFLOW;}
+				if (d->stack[DWAC_STACK_CAPACITY - 1].s64 != WA_MAGIC_STACK_VALUE) {return DWAC_STACK_OVERFLOW;}
 				if (d->pc.pos >= d->pc.nof) {return DWAC_PC_ADDR_OUT_OF_RANGE;}
 				if (--d->gas_meter <= 0) {return DWAC_NEED_MORE_GAS;}
 				break;
@@ -2211,7 +2213,7 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 
 				dbg("br\n");
 
-				if (d->stack[DWAC_STACK_SIZE - 1].s64 != WA_MAGIC_STACK_VALUE) {return DWAC_STACK_OVERFLOW;}
+				if (d->stack[DWAC_STACK_CAPACITY - 1].s64 != WA_MAGIC_STACK_VALUE) {return DWAC_STACK_OVERFLOW;}
 				if (d->pc.pos >= d->pc.nof) {return DWAC_PC_ADDR_OUT_OF_RANGE;}
 				if (--d->gas_meter <= 0) {return DWAC_NEED_MORE_GAS;}
 				break;
@@ -2241,7 +2243,7 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 					/* do nothing, will just continue with next opcode. */
 				}
 
-				if (d->stack[DWAC_STACK_SIZE - 1].s64 != WA_MAGIC_STACK_VALUE) {return DWAC_STACK_OVERFLOW;}
+				if (d->stack[DWAC_STACK_CAPACITY - 1].s64 != WA_MAGIC_STACK_VALUE) {return DWAC_STACK_OVERFLOW;}
 				if (d->pc.pos >= d->pc.nof) {return DWAC_PC_ADDR_OUT_OF_RANGE;}
 				if (--d->gas_meter <= 0) {return DWAC_NEED_MORE_GAS;}
 				break;
@@ -2320,7 +2322,7 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 
 				dbg("return\n");
 
-				if (d->stack[DWAC_STACK_SIZE - 1].s64 != WA_MAGIC_STACK_VALUE) {return DWAC_STACK_OVERFLOW;}
+				if (d->stack[DWAC_STACK_CAPACITY - 1].s64 != WA_MAGIC_STACK_VALUE) {return DWAC_STACK_OVERFLOW;}
 				if (d->pc.pos >= d->pc.nof) {return DWAC_PC_ADDR_OUT_OF_RANGE;}
 				if (--d->gas_meter <= 0) {return DWAC_NEED_MORE_GAS;}
 				break;
@@ -2349,7 +2351,7 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 					}
 				}
 
-				if (d->stack[DWAC_STACK_SIZE - 1].s64 != WA_MAGIC_STACK_VALUE) {return DWAC_STACK_OVERFLOW;}
+				if (d->stack[DWAC_STACK_CAPACITY - 1].s64 != WA_MAGIC_STACK_VALUE) {return DWAC_STACK_OVERFLOW;}
 				if (d->pc.pos >= d->pc.nof) {return DWAC_PC_ADDR_OUT_OF_RANGE;}
 				if (--d->gas_meter <= 0) {return DWAC_NEED_MORE_GAS;}
 				break;
@@ -2426,7 +2428,7 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 
 				dbg("call_indirect %u %u %u %u %s\n", typeidx, tableidx, idx_into_table, (unsigned int)function_idx, dwac_get_func_name(p, function_idx));
 
-				if (d->stack[DWAC_STACK_SIZE - 1].s64 != WA_MAGIC_STACK_VALUE) {return DWAC_STACK_OVERFLOW;}
+				if (d->stack[DWAC_STACK_CAPACITY - 1].s64 != WA_MAGIC_STACK_VALUE) {return DWAC_STACK_OVERFLOW;}
 				if (d->pc.pos >= d->pc.nof) {return DWAC_PC_ADDR_OUT_OF_RANGE;}
 				if (--d->gas_meter <= 0) {return DWAC_NEED_MORE_GAS;}
 				break;
@@ -3927,7 +3929,7 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 //     explicit 0x0B opcode for end.
 //
 // So we need to run some instructions. The result is expected to be placed on the stack.
-static long run_init_expr(const dwac_prog *p, dwac_data *d, uint8_t type, uint32_t maxlen)
+static dwac_result run_init_expr(const dwac_prog *p, dwac_data *d, uint8_t type, uint32_t maxlen)
 {
 	dwac_block_stack_entry *block = (dwac_block_stack_entry*) dwac_linear_storage_size_push(&d->block_stack);
 	block->block_type_code = dwac_block_type_init_exp;
@@ -4744,40 +4746,44 @@ long long dwac_total_memory_usage(dwac_data *d)
 	d->memory.arguments.capacity +
 	(d->globals.capacity * 8) +
 	(d->block_stack.capacity * sizeof(dwac_block_stack_entry)) +
-	DWAC_STACK_SIZE * 8 +
+	DWAC_STACK_CAPACITY * 8 +
 	d->pc.nof;
 }
 
-long dwac_report_result(const dwac_prog *p, dwac_data *d, const dwac_function *f, FILE* log)
+// The return value is the topmost value on stack.
+int dwac_get_return_value(const dwac_data *d)
+{
+	return (STACK_SIZE(d) > 0) ? (d->stack[d->sp].s64) : 0;
+}
+
+void dwac_log_result(const dwac_prog *p, const dwac_data *d, const dwac_function *f, FILE* log)
 {
 	dbg("report_result\n");
 	assert(log);
-	long ret_val = 0;
-	// If the called function had a return value it should be on the stack.
-	// Log the values on stack.
-	fprintf(log, "Stack: %u\n", d->sp + DWAC_SP_OFFSET);
-	while (d->sp != DWAC_SP_INITIAL) {
+
+	fprintf(log, "Stack size: %ld\n", (long)STACK_SIZE(d));
+
+	// Log the values on stack, topmost value first here.
+	dwac_stack_pointer_type i = d->sp;
+	while (i != DWAC_SP_INITIAL) {
 		const dwac_func_type_type* type = dwac_get_func_type_ptr(p, f->func_type_idx);
 		uint32_t nof_results = type->nof_results;
-		if (d->sp < nof_results)
+		if (i < nof_results)
 		{
-			dwac_value_type *v = &d->stack[d->sp];
-			uint8_t t = type->results_list[d->sp];
+			const dwac_value_type *v = &d->stack[i];
+			uint8_t t = type->results_list[i];
 			char tmp[64];
 			dwac_value_and_type_to_string(tmp, sizeof(tmp), v, t);
 			fprintf(log, "  %s\n", tmp);
 		}
 		else
 		{
-			fprintf(log, "  0x%llx\n", (long long)d->stack[d->sp].s64);
+			fprintf(log, "  0x%llx\n", (long long)d->stack[i].s64);
 		}
-		ret_val = d->stack[d->sp].s64;
-		d->sp--;
+		i--;
 	}
 	assert(d->exception[sizeof(d->exception)-1]==0);
-	d->exception[0] = 0;
-	fprintf(log, "Return value from guest: %ld\n", ret_val);
-	return ret_val;
+	fprintf(log, "Return value from guest: %d\n", dwac_get_return_value(d));
 }
 
 #ifdef LOG_FUNC_NAMES
@@ -4890,7 +4896,7 @@ void dwac_data_init(dwac_data *d)
 	// Put some magic number in the far end of stack.
 	// For performance reasons we don't check for stack overflow at every push or pop.
 	// This way we can get some indication if a stack overflow happens.
-	d->stack[DWAC_STACK_SIZE - 1].s64 = WA_MAGIC_STACK_VALUE;
+	d->stack[DWAC_STACK_CAPACITY - 1].s64 = WA_MAGIC_STACK_VALUE;
 
 	dwac_linear_storage_64_init(&d->globals);
 	dwac_linear_storage_8_init(&d->memory.lower_mem);
@@ -4920,7 +4926,7 @@ void dwac_data_deinit(dwac_data *d, FILE* log)
 			d->memory.arguments.capacity,
 			d->globals.capacity * 8,
 			d->block_stack.capacity * sizeof(dwac_block_stack_entry),
-			DWAC_STACK_SIZE * 8,
+			DWAC_STACK_CAPACITY * 8,
 			d->pc.nof);}
 
 	dwac_linear_storage_64_deinit(&d->globals);
@@ -4945,5 +4951,4 @@ void dwac_prog_init(dwac_prog *p)
 	#ifdef LOG_FUNC_NAMES
 	dwac_linear_storage_size_init(&p->func_names, DWAC_HASH_LIST_MAX_KEY_SIZE+1);
 	#endif
-
 }

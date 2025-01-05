@@ -140,6 +140,7 @@ static int find_root_dir(const char* test_code_dir_name, char *actual_path, size
 
 static int test_drekkar_webasm_runtime(dwac_env_type *e)
 {
+	int c = -1;
 	if (e->file_name[0]==0)
 	{
 		char path[PATH_MAX];
@@ -160,13 +161,19 @@ static int test_drekkar_webasm_runtime(dwac_env_type *e)
 	else
 	{
 		r = dwae_tick(e);
-		if (r != 0)
+		switch(r)
 		{
-			printf("dwae_tick failed %ld\n", r);
+			case DWAC_OK:
+			case DWAC_EXIT:
+				c = dwac_get_return_value(e->d);
+				break;
+			default:
+				printf("dwae_tick failed %ld\n", r);
+				break;
 		}
 		dwae_deinit(e);
 	}
-	return 0;
+	return c;
 }
 
 int main(int argc, char** argv)
