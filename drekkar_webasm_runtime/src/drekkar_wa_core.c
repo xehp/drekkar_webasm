@@ -59,9 +59,9 @@
 
 
 #ifdef DBG
-#define D(...) {fprintf(stdout, __VA_ARGS__);}
+#define dbg(...) {fprintf(stdout, __VA_ARGS__);}
 #else
-#define D(...)
+#define dbg(...)
 #endif
 
 
@@ -228,7 +228,7 @@ void* dwac_st_malloc(size_t size, const char *file, unsigned int line)
 	// Some logging (this can be removed later).
 	if (alloc_counter >= (2*logged_alloc_counter))
 	{
-		D("sys_alloc %lu %ld\n", alloc_size, alloc_counter);
+		dbg("sys_alloc %lu %ld\n", alloc_size, alloc_counter);
 		logged_alloc_counter = alloc_counter;
 	}
 
@@ -259,7 +259,7 @@ void* dwac_st_calloc(size_t num, size_t size, const char *file, unsigned int lin
 	// Some logging (this can be removed later).
 	if (alloc_counter >= (2*logged_alloc_counter))
 	{
-		D("sys_alloc %lu %ld\n", alloc_size, alloc_counter);
+		dbg("sys_alloc %lu %ld\n", alloc_size, alloc_counter);
 		logged_alloc_counter = alloc_counter;
 	}
 
@@ -516,7 +516,7 @@ long dwac_hash_list_put(dwac_hash_list *list, const char* key_ptr, void* ptr)
 		const long new_capacity = old_capacity * 2;
 		dwac_hash_entry* new_storage = DWAC_ST_MALLOC(new_capacity*sizeof(dwac_hash_entry));
 		memset(new_storage, 0, new_capacity*sizeof(dwac_hash_entry));
-		D("hash_list expanded to %ld\n", new_capacity);
+		dbg("hash_list expanded to %ld\n", new_capacity);
 
 		// Need to reenter all data over to new list.
 		for(long i = 0; i < old_capacity; ++i)
@@ -1556,7 +1556,7 @@ size_t dwac_func_type_to_string(char *buf, size_t size, const dwac_func_type_typ
 // Merge the two by copying all data in upper into the lower.
 static void merge_memories(dwac_data *d)
 {
-	D("merge upper memory with lower\n");
+	dbg("merge upper memory with lower\n");
 	assert(d->memory.lower_mem.capacity <= d->memory.upper_mem.begin);
 	dwac_linear_storage_8_grow_if_needed(&(d->memory.lower_mem), d->memory.upper_mem.end);
 	memcpy(d->memory.lower_mem.array + d->memory.upper_mem.begin, d->memory.upper_mem.array, d->memory.upper_mem.end - d->memory.upper_mem.begin);
@@ -1831,7 +1831,7 @@ static uint32_t find_else_or_end(const dwac_prog *p, const dwac_data *d, uint32_
 // to recursively call wa_tick instead of this block stack stuff.
 dwac_result dwac_setup_function_call(const dwac_prog *p, dwac_data *d, uint32_t function_idx)
 {
-	D("dwac_setup_function_call %d\n", function_idx);
+	dbg("dwac_setup_function_call %d\n", function_idx);
 	if (function_idx < p->funcs_vector.nof_imported) {return DWAC_CAN_NOT_CALL_IMPORTED_HERE;}
 	if (function_idx >= p->funcs_vector.total_nof) {return DWAC_FUNC_IDX_OUT_OF_RANGE;}
 	dwac_function *func = &p->funcs_vector.functions_array[function_idx];
@@ -1872,7 +1872,7 @@ dwac_result dwac_setup_function_call(const dwac_prog *p, dwac_data *d, uint32_t 
 
 static dwac_result call_imported_function(const dwac_prog *p, dwac_data *d, uint32_t function_idx)
 {
-	D("call_imported_function %d\n", function_idx);
+	dbg("call_imported_function %d\n", function_idx);
 	if (function_idx >= p->funcs_vector.nof_imported) {return DWAC_NOT_AN_IDX_OF_IMPORTED_FUNCTION;}
 	dwac_function *func = &p->funcs_vector.functions_array[function_idx];
 	assert(func && (func->func_type_idx >= 0));
@@ -1927,7 +1927,7 @@ const char* dwac_get_func_name(const dwac_prog *p, long function_idx)
 // Something else if not OK.
 dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 {
-	D("dwac_tick\n");
+	dbg("dwac_tick\n");
 
 	assert(d->block_stack.size != 0);
 	if (d->stack[DWAC_STACK_SIZE - 1].s64 != WA_MAGIC_STACK_VALUE) {return DWAC_STACK_OVERFLOW;}
@@ -1942,17 +1942,17 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 	{
 		assert((d->pc.pos < d->pc.nof));
 		const uint8_t opcode = leb_read_uint8(&d->pc);
-		D("<%02x> ", opcode);
+		dbg("<%02x> ", opcode);
 		switch (opcode)
 		{
 			case 0x00: // unreachable
-				D("unreachable\n");
+				dbg("unreachable\n");
 				// The unreachable instruction causes an unconditional trap.
 				sprintf(d->exception, "%s", "unreachable");
 				return DWAC_OP_CODE_ZERO;
 			case 0x01: // nop
 				// The nop instruction does nothing.
-				D("nop\n");
+				dbg("nop\n");
 				if (--d->gas_meter <= 0) {return DWAC_NEED_MORE_GAS;}
 				break;
 			case 0x02: // block
@@ -1976,7 +1976,7 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 				block->block_and_loop_info.br_addr = find_br_addr(p, d, d->pc.pos);
 				block->stack_pointer = d->sp; // Or just set it to zero?
 
-				D("block\n");
+				dbg("block\n");
 
 				const dwac_func_type_type *ptr = dwac_get_func_type_ptr(p, block->func_type_idx);
 				if (ptr == NULL)
@@ -2002,7 +2002,7 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 				block->block_and_loop_info.br_addr = d->pc.pos;
 				block->stack_pointer = d->sp;
 
-				D("loop\n");
+				dbg("loop\n");
 
 				const dwac_func_type_type *ptr = dwac_get_func_type_ptr(p, block->func_type_idx);
 				if (ptr == NULL)
@@ -2077,7 +2077,7 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 					// Condition was true, do nothing here, continue until else opcode is found.
 				}
 
-				D("if %u\n", cond);
+				dbg("if %u\n", cond);
 
 				const dwac_func_type_type *ptr = dwac_get_func_type_ptr(p, block->func_type_idx);
 				if (ptr == NULL)
@@ -2096,7 +2096,7 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 				const dwac_block_stack_entry *f = (dwac_block_stack_entry*) dwac_linear_storage_size_top(&d->block_stack);
 				d->pc.pos = f->if_else_info.end_addr;
 
-				D("else\n");
+				dbg("else\n");
 
 				if (d->pc.pos >= d->pc.nof) {return DWAC_PC_ADDR_OUT_OF_RANGE;}
 				if (--d->gas_meter <= 0) {return DWAC_NEED_MORE_GAS;}
@@ -2105,7 +2105,7 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 			case 0x0b: // end
 			{
 				// Reached the end of a block or function take new PC from the call/block stack.
-				D("end\n");
+				dbg("end\n");
 
 				// Pop from block stack.
 				const dwac_block_stack_entry *block = (dwac_block_stack_entry*) dwac_linear_storage_size_pop(&d->block_stack);
@@ -2209,7 +2209,7 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 				const dwac_block_stack_entry *f = (dwac_block_stack_entry*) dwac_linear_storage_size_top(&d->block_stack);
 				d->pc.pos = f->block_and_loop_info.br_addr;
 
-				D("br\n");
+				dbg("br\n");
 
 				if (d->stack[DWAC_STACK_SIZE - 1].s64 != WA_MAGIC_STACK_VALUE) {return DWAC_STACK_OVERFLOW;}
 				if (d->pc.pos >= d->pc.nof) {return DWAC_PC_ADDR_OUT_OF_RANGE;}
@@ -2218,7 +2218,7 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 			}
 			case 0x0d: // br_if
 			{
-				D("br_if\n");
+				dbg("br_if\n");
 				// This is the end of a loop, check condition to see if loop shall continue?
 				// First get how many levels of blocks program shall get out of.
 				const uint32_t labelidx = leb_read(&d->pc, 32);
@@ -2286,7 +2286,7 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 
 				DWAC_ST_FREE(a);
 
-				D("br_table\n");
+				dbg("br_table\n");
 
 				if (d->pc.pos >= d->pc.nof) {return DWAC_PC_ADDR_OUT_OF_RANGE;}
 				if (--d->gas_meter <= 0) {return DWAC_NEED_MORE_GAS;}
@@ -2318,7 +2318,7 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 					return DWAC_BLOCKSTACK_UNDERFLOW;
 				}
 
-				D("return\n");
+				dbg("return\n");
 
 				if (d->stack[DWAC_STACK_SIZE - 1].s64 != WA_MAGIC_STACK_VALUE) {return DWAC_STACK_OVERFLOW;}
 				if (d->pc.pos >= d->pc.nof) {return DWAC_PC_ADDR_OUT_OF_RANGE;}
@@ -2330,7 +2330,7 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 				// 0x10 x:funcidx
 				const uint32_t function_idx = leb_read(&d->pc, 32);
 
-				D("call %u %s\n", function_idx, dwac_get_func_name(p, function_idx));
+				dbg("call %u %s\n", function_idx, dwac_get_func_name(p, function_idx));
 
 				if (function_idx < p->funcs_vector.nof_imported)
 				{
@@ -2424,7 +2424,7 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 					if (r) {return DWAC_INDIRECT_CALL_FAILED;}
 				}
 
-				D("call_indirect %u %u %u %u %s\n", typeidx, tableidx, idx_into_table, (unsigned int)function_idx, dwac_get_func_name(p, function_idx));
+				dbg("call_indirect %u %u %u %u %s\n", typeidx, tableidx, idx_into_table, (unsigned int)function_idx, dwac_get_func_name(p, function_idx));
 
 				if (d->stack[DWAC_STACK_SIZE - 1].s64 != WA_MAGIC_STACK_VALUE) {return DWAC_STACK_OVERFLOW;}
 				if (d->pc.pos >= d->pc.nof) {return DWAC_PC_ADDR_OUT_OF_RANGE;}
@@ -2434,7 +2434,7 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 
 			case 0x1a: // drop
 				d->sp--;
-				D("drop\n");
+				dbg("drop\n");
 				break;
 			case 0x1b: // select
 			{
@@ -2446,7 +2446,7 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 				{
 					TOP(d) = d->stack[SP_MASK(d->sp + 1)];
 				}
-				D("select %u\n", cond);
+				dbg("select %u\n", cond);
 				break;
 			}
 			case 0x1c:
@@ -2459,7 +2459,7 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 				// Get a local variable value, push it to stack.
 				const uint32_t localidx = leb_read(&d->pc, 32);
 				PUSH(d) = d->stack[SP_MASK(d->fp + localidx)];
-				D("local.get %u 0x%llx\n", localidx, (unsigned long long)TOP_U64(d));
+				dbg("local.get %u 0x%llx\n", localidx, (unsigned long long)TOP_U64(d));
 				break;
 			}
 			case 0x21: // local.set
@@ -2468,7 +2468,7 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 				const uint32_t localidx = leb_read(&d->pc, 32);
 				const dwac_value_type a = POP(d);
 				d->stack[SP_MASK(d->fp + localidx)] = a;
-				D("local.set 0x%x 0x%llx\n", localidx, (unsigned long long)a.u64);
+				dbg("local.set 0x%x 0x%llx\n", localidx, (unsigned long long)a.u64);
 				break;
 			}
 			case 0x22: // local.tee
@@ -2476,7 +2476,7 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 				// Same as local.set but value also stay on stack instead of popped.
 				const uint32_t localidx = leb_read(&d->pc, 32);
 				d->stack[SP_MASK(d->fp + localidx)] = TOP(d);
-				D("local.tee 0x%x 0x%llx  0x%x 0x%x\n", localidx, (unsigned long long)TOP_U64(d), d->fp, d->sp);
+				dbg("local.tee 0x%x 0x%llx  0x%x 0x%x\n", localidx, (unsigned long long)TOP_U64(d), d->fp, d->sp);
 				break;
 			}
 			case 0x23: // global.get
@@ -2485,7 +2485,7 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 				const uint32_t globalidx = leb_read(&d->pc, 32);
 				if (globalidx >= d->globals.size) {return DWAC_GLOBAL_IDX_OUT_OF_RANGE;}
 				PUSH_U64(d, d->globals.array[globalidx]);
-				D("global.get 0x%x 0x%llx\n", globalidx, (long long unsigned)TOP_U64(d));
+				dbg("global.get 0x%x 0x%llx\n", globalidx, (long long unsigned)TOP_U64(d));
 				break;
 			}
 			case 0x24: // global.set
@@ -2493,7 +2493,7 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 				const uint32_t globalidx = leb_read(&d->pc, 32);
 				if (globalidx >= d->globals.size) {return DWAC_GLOBAL_IDX_OUT_OF_RANGE;}
 				d->globals.array[globalidx] = POP_U64(d);
-				D("global.set 0x%x 0x%llx\n", globalidx, (long long unsigned)d->globals.array[globalidx]);
+				dbg("global.set 0x%x 0x%llx\n", globalidx, (long long unsigned)d->globals.array[globalidx]);
 				break;
 			}
 
@@ -2513,7 +2513,7 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 				const uint32_t offset = leb_read(&d->pc, 32);
 				const uint32_t addr = POP_U32(d);
 				PUSH_I32(d, translate_get_int32(d, offset + addr));
-				D("i32.load 0x%x 0x%x 0x%x\n", offset, addr, TOP_U32(d));
+				dbg("i32.load 0x%x 0x%x 0x%x\n", offset, addr, TOP_U32(d));
 				break;
 			}
 			case 0x29: // i64.load
@@ -2522,7 +2522,7 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 				const uint32_t offset = leb_read(&d->pc, 32);
 				const uint32_t addr = POP_U32(d);
 				PUSH_I64(d, translate_get_int64(d, offset + addr));
-				D("i64.load 0x%x 0x%x 0x%llx\n", offset, addr, (unsigned long long)TOP_U64(d));
+				dbg("i64.load 0x%x 0x%x 0x%llx\n", offset, addr, (unsigned long long)TOP_U64(d));
 				break;
 			}
 			#ifndef SKIP_FLOAT
@@ -2533,7 +2533,7 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 				const uint32_t addr = POP_U32(d);
 				const uint32_t v = translate_get_int32(d, offset + addr);
 				PUSH_F32I(d, v);
-				D("f32.load");
+				dbg("f32.load");
 				break;
 		    }
 		    case 0x2b: // f64.load
@@ -2543,7 +2543,7 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 				const uint32_t addr = POP_U32(d);
 				const uint64_t v = translate_get_int64(d, offset + addr);
 				PUSH_F64I(d, v);
-				D("f64.load");
+				dbg("f64.load");
 				break;
 		    }
 			#endif
@@ -2554,7 +2554,7 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 				const uint32_t addr = POP_U32(d);
 				const int8_t value = translate_get_int8(d, offset + addr);
 				PUSH_I32(d, value);
-				D("i32.load8_s 0x%x\n", TOP_U32(d));
+				dbg("i32.load8_s 0x%x\n", TOP_U32(d));
 				break;
 		    }
 		    case 0x2d: // i32.load8_u
@@ -2564,7 +2564,7 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 				const uint32_t addr = POP_U32(d);
 				const uint8_t value = translate_get_int8(d, offset + addr);
 				PUSH_U32(d, value);
-				D("i32.load8_u 0x%x\n", TOP_U32(d));
+				dbg("i32.load8_u 0x%x\n", TOP_U32(d));
 				break;
 		    }
 		    case 0x2e: // i32.load16_s
@@ -2574,7 +2574,7 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 				const uint32_t addr = POP_U32(d);
 				const int16_t value = translate_get_int16(d, offset + addr);
 				PUSH_I32(d, value);
-				D("i32.load16_s 0x%x\n", TOP_U32(d));
+				dbg("i32.load16_s 0x%x\n", TOP_U32(d));
 				break;
 		    }
 		    case 0x2f: // i32.load16_u
@@ -2584,7 +2584,7 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 				const uint32_t addr = POP_U32(d);
 				const uint16_t value = translate_get_int16(d, offset + addr);
 				PUSH_U32(d, value);
-				D("i32.load16_u 0x%x\n", TOP_U32(d));
+				dbg("i32.load16_u 0x%x\n", TOP_U32(d));
 				break;
 		    }
 		    case 0x30: // i64.load8_s
@@ -2594,7 +2594,7 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 				const uint32_t addr = POP_U32(d);
 				const int8_t value = translate_get_int8(d, offset + addr);
 				PUSH_I64(d, value);
-				D("i64.load8_s 0x%llx\n", (long unsigned long)TOP_U64(d));
+				dbg("i64.load8_s 0x%llx\n", (long unsigned long)TOP_U64(d));
 				break;
 		    }
 		    case 0x31: // i64.load8_u
@@ -2604,7 +2604,7 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 				const uint32_t addr = POP_U32(d);
 				const uint8_t value = translate_get_int8(d, offset + addr);
 				PUSH_U64(d, value);
-				D("i64.load8_u 0x%llx\n", (long unsigned long)TOP_U64(d));
+				dbg("i64.load8_u 0x%llx\n", (long unsigned long)TOP_U64(d));
 				break;
 		    }
 		    case 0x32: // i64.load16_s
@@ -2614,7 +2614,7 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 				const uint32_t addr = POP_U32(d);
 				const int16_t value = translate_get_int16(d, offset + addr);
 				PUSH_I64(d, value);
-				D("i64.load16_s 0x%llx\n", (long unsigned long)TOP_U64(d));
+				dbg("i64.load16_s 0x%llx\n", (long unsigned long)TOP_U64(d));
 				break;
 		    }
 		    case 0x33: // i64.load16_u
@@ -2624,7 +2624,7 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 				const uint32_t addr = POP_U32(d);
 				const uint16_t value = translate_get_int16(d, offset + addr);
 				PUSH_U64(d, value);
-				D("i64.load16_u 0x%llx\n", (long unsigned long)TOP_U64(d));
+				dbg("i64.load16_u 0x%llx\n", (long unsigned long)TOP_U64(d));
 				break;
 		    }
 		    case 0x34: // i64.load32_s
@@ -2634,7 +2634,7 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 				const uint32_t addr = POP_U32(d);
 				const int32_t value = translate_get_int32(d, offset + addr);
 				PUSH_I64(d, value);
-				D("i64.load32_s 0x%llx\n", (long unsigned long)TOP_U64(d));
+				dbg("i64.load32_s 0x%llx\n", (long unsigned long)TOP_U64(d));
 				break;
 		    }
 		    case 0x35: // i64.load32_u
@@ -2644,7 +2644,7 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 				const uint32_t addr = POP_U32(d);
 				const uint32_t value = translate_get_int32(d, offset + addr);
 				PUSH_U64(d, value);
-				D("i64.load32_u 0x%llx\n", (long unsigned long)TOP_U64(d));
+				dbg("i64.load32_u 0x%llx\n", (long unsigned long)TOP_U64(d));
 				break;
 		    }
 
@@ -2655,7 +2655,7 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 				const int32_t value = POP_I32(d);
 				const uint32_t addr = POP_U32(d);
 				translate_set_int32(d, offset + addr, value);
-				D("i32.store 0x%llx\n", (long unsigned long)value);
+				dbg("i32.store 0x%llx\n", (long unsigned long)value);
 				break;
 		    }
 		    case 0x37: // i64.store
@@ -2665,7 +2665,7 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 				const int64_t value = POP_I64(d);
 				const uint32_t addr = POP_U32(d);
 				translate_set_int64(d, offset + addr, value);
-				D("i64.store 0x%llx\n", (long unsigned long)value);
+				dbg("i64.store 0x%llx\n", (long unsigned long)value);
 				break;
 		    }
 		    case 0x38: // f32.store
@@ -2675,7 +2675,7 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 				const uint32_t value = POP_U32(d);
 				const uint32_t addr = POP_U32(d);
 				translate_set_int32(d, offset + addr, value);
-				D("f32.store");
+				dbg("f32.store");
 				break;
 		    }
 		    case 0x39: // f64.store
@@ -2686,7 +2686,7 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 				const uint64_t value = POP_U64(d);
 				const uint32_t addr = POP_U32(d);
 				translate_set_int64(d, offset + addr, value);
-				D("f64.store");
+				dbg("f64.store");
 				break;
 		    }
 		    case 0x3a: // i32.store8
@@ -2696,7 +2696,7 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 				const int32_t value = POP_I32(d);
 				const uint32_t addr = POP_U32(d);
 				translate_set_int8(d, offset + addr, value);
-				D("i32.store8 0x%x 0x%x 0x%x\n", offset, value, addr);
+				dbg("i32.store8 0x%x 0x%x 0x%x\n", offset, value, addr);
 				break;
 		    }
 		    case 0x3b: // i32.store16
@@ -2706,7 +2706,7 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 				const int32_t value = POP_I32(d);
 				const uint32_t addr = POP_U32(d);
 				translate_set_int16(d, offset + addr, value);
-				D("i32.store16 0x%x 0x%x 0x%x\n", offset, value, addr);
+				dbg("i32.store16 0x%x 0x%x 0x%x\n", offset, value, addr);
 				break;
 		    }
 		    case 0x3c: // i64.store8
@@ -2716,7 +2716,7 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 				const int8_t value = POP_I32(d);
 				const uint32_t addr = POP_U32(d);
 				translate_set_int8(d, offset + addr, value);
-				D("i64.store8 0x%x 0x%llx 0x%x\n", offset, (long long unsigned)value, addr);
+				dbg("i64.store8 0x%x 0x%llx 0x%x\n", offset, (long long unsigned)value, addr);
 				break;
 		    }
 		    case 0x3d: // i32.store16
@@ -2726,7 +2726,7 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 				const int16_t value = POP_I32(d);
 				const uint32_t addr = POP_U32(d);
 				translate_set_int16(d, offset + addr, value);
-				D("i32.store16 0x%x 0x%llx 0x%x\n", offset, (long long unsigned)value, addr);
+				dbg("i32.store16 0x%x 0x%llx 0x%x\n", offset, (long long unsigned)value, addr);
 				break;
 		    }
 		    case 0x3e: // i64.store32
@@ -2736,7 +2736,7 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 				const int32_t value = POP_I64(d);
 				const int32_t addr = POP_I32(d);
 				translate_set_int32(d, offset + addr, value);
-				D("i64.store32 0x%x 0x%llx 0x%x\n", offset, (long long unsigned)value, addr);
+				dbg("i64.store32 0x%x 0x%llx 0x%x\n", offset, (long long unsigned)value, addr);
 				break;
 		    }
 
@@ -2745,7 +2745,7 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 				uint32_t memidx = leb_read(&d->pc, 32);
 				if (memidx != 0) {return DWAC_ONLY_ONE_MEMORY_IS_SUPPORTED;}
 				PUSH_I32(d, d->memory.current_size_in_pages);
-				D("current_memory 0x%x\n", d->memory.current_size_in_pages);
+				dbg("current_memory 0x%x\n", d->memory.current_size_in_pages);
 				break;
 			}
 			case 0x40: // grow_memory
@@ -2761,7 +2761,7 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 					// TODO Deny growing of memory?
 				}
 				SET_U32(d, current_size_in_pages);
-				D("grow_memory %u %u\n", current_size_in_pages, requested_increase);
+				dbg("grow_memory %u %u\n", current_size_in_pages, requested_increase);
 				if (--d->gas_meter <= 0) {return DWAC_NEED_MORE_GAS;}
 				break;
 			}
@@ -2769,11 +2769,11 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 			case 0x41: // i32.const
 				// Push i32 immediate operand to stack.
 				PUSH_I32(d, leb_read_signed(&d->pc, 32));
-				D("i32.const 0x%x\n", TOP_U32(d));
+				dbg("i32.const 0x%x\n", TOP_U32(d));
 				break;
 			case 0x42: // i64.const
 				PUSH_I64(d, leb_read_signed(&d->pc, 64));
-				D("i64.const 0x%llx\n", (long long unsigned)TOP_U64(d));
+				dbg("i64.const 0x%llx\n", (long long unsigned)TOP_U64(d));
 				break;
 
 			#ifndef SKIP_FLOAT
@@ -2788,7 +2788,7 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 				// TODO This might fail on a big endian host (not tested).
 				const uint32_t a = leb_read_uint32(&d->pc);
 				PUSH_F32I(d, a);
-				D("f32.const 0x%x %g\n", a, TOP_F32(d));
+				dbg("f32.const 0x%x %g\n", a, TOP_F32(d));
 				break;
 			}
 			case 0x44: // f64.const
@@ -2796,157 +2796,157 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 				// TODO This might fail on a big endian host (not tested).
 				const uint64_t a = leb_read_uint64(&d->pc);
 				PUSH_F64I(d, a);
-				D("f64.const 0x%llx %g\n", (unsigned long long)a, TOP_F64(d));
+				dbg("f64.const 0x%llx %g\n", (unsigned long long)a, TOP_F64(d));
 				break;
 			}
 			#endif
 
 			case 0x45: // i32.eqz
 				SET_I32(d, (TOP_I32(d) == 0));
-				D("i32.eqz 0x%x\n", TOP_I32(d));
+				dbg("i32.eqz 0x%x\n", TOP_I32(d));
 				break;
 			case 0x46: // i32.eq
 			{
 				const int32_t b = POP_I32(d);
 				SET_I32(d, (TOP_I32(d) == b));
-				D("i32.eq 0x%x\n", TOP_I32(d));
+				dbg("i32.eq 0x%x\n", TOP_I32(d));
 				break;
 			}
 			case 0x47: // i32.ne
 			{
 				const int32_t b = POP_I32(d);
 				SET_I32(d, (TOP_I32(d) != b));
-				D("i32.ne 0x%x\n", TOP_I32(d));
+				dbg("i32.ne 0x%x\n", TOP_I32(d));
 				break;
 			}
 			case 0x48: // i32.lt_s
 			{
 				const int32_t b = POP_I32(d);
 				SET_I32(d, (TOP_I32(d) < b));
-				D("i32.lt_s 0x%x\n", TOP_I32(d));
+				dbg("i32.lt_s 0x%x\n", TOP_I32(d));
 				break;
 			}
 			case 0x49: // i32.lt_u
 			{
 				const uint32_t b = POP_U32(d);
 				SET_I32(d, (TOP_U32(d) < b));
-				D("i32.lt_u 0x%x\n", TOP_I32(d));
+				dbg("i32.lt_u 0x%x\n", TOP_I32(d));
 				break;
 			}
 			case 0x4a: // i32.gt_s
 			{
 				const int32_t b = POP_I32(d);
 				SET_I32(d, (TOP_I32(d) > b));
-				D("i32.gt_s 0x%x\n", TOP_I32(d));
+				dbg("i32.gt_s 0x%x\n", TOP_I32(d));
 				break;
 			}
 			case 0x4b: // i32.gt_u
 			{
 				const uint32_t b = POP_U32(d);
 				SET_I32(d, (TOP_U32(d) > b));
-				D("i32.gt_u 0x%x\n", TOP_I32(d));
+				dbg("i32.gt_u 0x%x\n", TOP_I32(d));
 				break;
 			}
 			case 0x4c: // i32.le_s
 			{
 				const int32_t b = POP_I32(d);
 				SET_I32(d, (TOP_I32(d) <= b));
-				D("i32.le_s 0x%x\n", TOP_I32(d));
+				dbg("i32.le_s 0x%x\n", TOP_I32(d));
 				break;
 			}
 			case 0x4d: // i32.le_u
 			{
 				const uint32_t b = POP_U32(d);
 				SET_I32(d, (TOP_U32(d) <= b));
-				D("i32.le_u 0x%x\n", TOP_I32(d));
+				dbg("i32.le_u 0x%x\n", TOP_I32(d));
 				break;
 			}
 			case 0x4e: // i32.ge_s
 			{
 				const int32_t b = POP_I32(d);
 				SET_I32(d, (TOP_I32(d) >= b));
-				D("i32.ge_s 0x%x\n", TOP_I32(d));
+				dbg("i32.ge_s 0x%x\n", TOP_I32(d));
 				break;
 			}
 			case 0x4f: // i32.ge_u
 			{
 				const uint32_t b = POP_U32(d);
 				SET_I32(d, (TOP_U32(d) >= b));
-				D("i32.ge_u 0x%x\n", TOP_I32(d));
+				dbg("i32.ge_u 0x%x\n", TOP_I32(d));
 				break;
 			}
 			case 0x50: // i64.eqz
 				SET_I32(d, (TOP_I64(d) == 0));
-				D("i32.eqz 0x%x\n", TOP_I32(d));
+				dbg("i32.eqz 0x%x\n", TOP_I32(d));
 				break;
 			case 0x51: // i64.eq
 			{
 				const int64_t b = POP_I64(d);
 				SET_I32(d, (TOP_I64(d) == b));
-				D("i32.eq 0x%x\n", TOP_I32(d));
+				dbg("i32.eq 0x%x\n", TOP_I32(d));
 				break;
 			}
 			case 0x52: // i64.ne
 			{
 				const int64_t b = POP_I64(d);
 				SET_I32(d, (TOP_I64(d) != b));
-				D("i32.ne 0x%x\n", TOP_I32(d));
+				dbg("i32.ne 0x%x\n", TOP_I32(d));
 				break;
 			}
 			case 0x53: // i64.lt_s
 			{
 				const int64_t b = POP_I64(d);
 				SET_I32(d, (TOP_I64(d) < b));
-				D("i32.lt_s 0x%x\n", TOP_I32(d));
+				dbg("i32.lt_s 0x%x\n", TOP_I32(d));
 				break;
 			}
 			case 0x54: // i64.lt_u
 			{
 				const uint64_t b = POP_U64(d);
 				SET_I32(d, (TOP_U64(d) < b));
-				D("i32.lt_u 0x%x\n", TOP_I32(d));
+				dbg("i32.lt_u 0x%x\n", TOP_I32(d));
 				break;
 			}
 			case 0x55: // i64.gt_s
 			{
 				const int64_t b = POP_I64(d);
 				SET_I32(d, (TOP_I64(d) > b));
-				D("i32.gt_s 0x%x\n", TOP_I32(d));
+				dbg("i32.gt_s 0x%x\n", TOP_I32(d));
 				break;
 			}
 			case 0x56: // i64.gt_u
 			{
 				const uint64_t b = POP_U64(d);
 				SET_I32(d, (TOP_U64(d) > b));
-				D("i32.gt_u 0x%x\n", TOP_I32(d));
+				dbg("i32.gt_u 0x%x\n", TOP_I32(d));
 				break;
 			}
 			case 0x57: // i64.le_s
 			{
 				const int64_t b = POP_I64(d);
 				SET_I32(d, (TOP_I64(d) <= b));
-				D("i32.le_s 0x%x\n", TOP_I32(d));
+				dbg("i32.le_s 0x%x\n", TOP_I32(d));
 				break;
 			}
 			case 0x58: // i64.le_u
 			{
 				const uint64_t b = POP_U64(d);
 				SET_I32(d, (TOP_U64(d) <= b));
-				D("i32.le_u 0x%x\n", TOP_I32(d));
+				dbg("i32.le_u 0x%x\n", TOP_I32(d));
 				break;
 			}
 			case 0x59: // i64.ge_s
 			{
 				const int64_t b = POP_I64(d);
 				SET_I32(d, (TOP_I64(d) >= b));
-				D("i32.ge_s 0x%x\n", TOP_I32(d));
+				dbg("i32.ge_s 0x%x\n", TOP_I32(d));
 				break;
 			}
 			case 0x5a: // i64.ge_u
 			{
 				const uint64_t b = POP_U64(d);
 				SET_I32(d, (TOP_U64(d) >= b));
-				D("i32.ge_u 0x%x\n", TOP_I32(d));
+				dbg("i32.ge_u 0x%x\n", TOP_I32(d));
 				break;
 			}
 
@@ -2957,7 +2957,7 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 				const float a = TOP_F32(d);
 				const int c = nearly_equal_float(a, b);
 				SET_I32(d, c);
-				D("f32.eq %g %g %d\n", a, b, c);
+				dbg("f32.eq %g %g %d\n", a, b, c);
 				break;
 			}
 			case 0x5c: // f32.ne
@@ -2966,7 +2966,7 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 				const float a = TOP_F32(d);
 				const int c = !nearly_equal_float(a, b);
 				SET_I32(d, c);
-				D("f32.ne %g %g %d\n", a, b, c);
+				dbg("f32.ne %g %g %d\n", a, b, c);
 				break;
 			}
 			case 0x5d: // f32.lt
@@ -2975,7 +2975,7 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 				const float a = TOP_F32(d);
 				const int c = (a < b);
 				SET_I32(d, c);
-				D("f32.lt %g %g %d\n", a, b, c);
+				dbg("f32.lt %g %g %d\n", a, b, c);
 				break;
 			}
 			case 0x5e: // f32.gt
@@ -2984,7 +2984,7 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 				const float a = TOP_F32(d);
 				const int c = a > b;
 				SET_I32(d, c);
-				D("f32.gt %g %g %d\n", a, b, c);
+				dbg("f32.gt %g %g %d\n", a, b, c);
 				break;
 			}
 			case 0x5f: // f32.le
@@ -2993,7 +2993,7 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 				const float a = TOP_F32(d);
 				const int c = (a <= b);
 				SET_I32(d, c);
-				D("f32.le %g %g %d\n", a, b, c);
+				dbg("f32.le %g %g %d\n", a, b, c);
 				break;
 			}
 			case 0x60: // f32.ge
@@ -3002,7 +3002,7 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 				const float a = TOP_F32(d);
 				const int c = (a >= b);
 				SET_I32(d, c);
-				D("f32.ge %g %g %d\n", a, b, c);
+				dbg("f32.ge %g %g %d\n", a, b, c);
 				break;
 			}
 			case 0x61: // f64.eq
@@ -3010,7 +3010,7 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 				const double b = POP_F64(d);
 				const double a = TOP_F64(d);
 				SET_I32(d, nearly_equal_double(a, b));
-				D("f64.eq %g %g %d\n", a, b, TOP_I32(d));
+				dbg("f64.eq %g %g %d\n", a, b, TOP_I32(d));
 				break;
 			}
 			case 0x62: // f64.ne
@@ -3018,7 +3018,7 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 				const double b = POP_F64(d);
 				const double a = TOP_F64(d);
 				SET_I32(d, !nearly_equal_float(a, b));
-				D("f64.ne %g %g %d\n", a, b, TOP_I32(d));
+				dbg("f64.ne %g %g %d\n", a, b, TOP_I32(d));
 				break;
 			}
 			case 0x63: // f64.lt
@@ -3026,7 +3026,7 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 				const double b = POP_F64(d);
 				const double a = TOP_F64(d);
 				SET_I32(d, (a < b));
-				D("f64.lt %g %g %d\n", a, b, TOP_I32(d));
+				dbg("f64.lt %g %g %d\n", a, b, TOP_I32(d));
 				break;
 			}
 			case 0x64: // f64.gt
@@ -3034,7 +3034,7 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 				const double b = POP_F64(d);
 				const double a = TOP_F64(d);
 				SET_I32(d, (a > b));
-				D("f64.gt %g %g %d\n", a, b, TOP_I32(d));
+				dbg("f64.gt %g %g %d\n", a, b, TOP_I32(d));
 				break;
 			}
 			case 0x65: // f64.le
@@ -3042,7 +3042,7 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 				const double b = POP_F64(d);
 				const double a = TOP_F64(d);
 				SET_I32(d, (a <= b));
-				D("f64.le %g %g %d\n", a, b, TOP_I32(d));
+				dbg("f64.le %g %g %d\n", a, b, TOP_I32(d));
 				break;
 			}
 			case 0x66: // f64.ge
@@ -3050,7 +3050,7 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 				const double b = POP_F64(d);
 				const double a = TOP_F64(d);
 				SET_I32(d, (a >= b));
-				D("f64.ge %g %g %d\n", a, b, TOP_I32(d));
+				dbg("f64.ge %g %g %d\n", a, b, TOP_I32(d));
 				break;
 			}
 			#endif
@@ -3085,21 +3085,21 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 			case 0x6a: // i32.add
 			{
 				const int32_t b = POP_I32(d);
-				D("i32.add 0x%x 0x%x 0x%x\n", TOP_I32(d), b, TOP_I32(d) + b);
+				dbg("i32.add 0x%x 0x%x 0x%x\n", TOP_I32(d), b, TOP_I32(d) + b);
 				SET_I32(d, TOP_I32(d) + b);
 				break;
 			}
 			case 0x6b: // i32.sub
 			{
 				const int32_t b = POP_I32(d);
-				D("i32.sub 0x%x 0x%x 0x%x\n", TOP_I32(d), b, TOP_I32(d) + b);
+				dbg("i32.sub 0x%x 0x%x 0x%x\n", TOP_I32(d), b, TOP_I32(d) + b);
 				SET_I32(d, TOP_I32(d) - b);
 				break;
 			}
 			case 0x6c: // i32.mul
 			{
 				const int32_t b = POP_I32(d);
-				D("i32.mul 0x%x 0x%x 0x%x\n", TOP_I32(d), b, TOP_I32(d) + b);
+				dbg("i32.mul 0x%x 0x%x 0x%x\n", TOP_I32(d), b, TOP_I32(d) + b);
 				SET_I32(d, TOP_I32(d) * b);
 				break;
 			}
@@ -3123,7 +3123,7 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 					return DWAC_INTEGER_OVERFLOW;
 				}
 				SET_I32(d, a / b);
-				D("i32.div_s 0x%x 0x%x 0x%x\n", a, b, TOP_I32(d));
+				dbg("i32.div_s 0x%x 0x%x 0x%x\n", a, b, TOP_I32(d));
 				break;
 			}
 			case 0x6e: // i32.div_u
@@ -3136,7 +3136,7 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 					return DWAC_DIVIDE_BY_ZERO;
 				}
 				SET_U32(d, a / b);
-				D("i32.div_u 0x%x 0x%x 0x%x\n", a, b, TOP_I32(d));
+				dbg("i32.div_u 0x%x 0x%x 0x%x\n", a, b, TOP_I32(d));
 				break;
 			}
 			case 0x6f: // i32.rem_s
@@ -3149,7 +3149,7 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 					return DWAC_DIVIDE_BY_ZERO;
 				}
 				SET_I32(d, ((a == 0x80000000) && (b == -1)) ? 0 : a % b);
-				D("i32.rem_s 0x%x 0x%x 0x%x\n", a, b, TOP_I32(d));
+				dbg("i32.rem_s 0x%x 0x%x 0x%x\n", a, b, TOP_I32(d));
 				break;
 			}
 			case 0x70: // i32.rem_u
@@ -3162,34 +3162,34 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 					return DWAC_DIVIDE_BY_ZERO;
 				}
 				SET_U32(d, a % b);
-				D("i32.rem_u 0x%x 0x%x 0x%x\n", a, b, TOP_I32(d));
+				dbg("i32.rem_u 0x%x 0x%x 0x%x\n", a, b, TOP_I32(d));
 				break;
 			}
 			case 0x71: // i32.and
 			{
 				const uint32_t b = POP_U32(d);
-				D("i32.and 0x%x 0x%x 0x%x\n", TOP_I32(d), b, TOP_I32(d) + b);
+				dbg("i32.and 0x%x 0x%x 0x%x\n", TOP_I32(d), b, TOP_I32(d) + b);
 				SET_U32(d, TOP_U32(d) & b);
 				break;
 			}
 			case 0x72: // i32.or
 			{
 				const uint32_t b = POP_U32(d);
-				D("i32.or 0x%x 0x%x 0x%x\n", TOP_I32(d), b, TOP_I32(d) + b);
+				dbg("i32.or 0x%x 0x%x 0x%x\n", TOP_I32(d), b, TOP_I32(d) + b);
 				SET_U32(d, TOP_U32(d) | b);
 				break;
 			}
 			case 0x73: // i32.xor
 			{
 				const int32_t b = POP_I32(d);
-				D("i32.xor 0x%x 0x%x 0x%x\n", TOP_I32(d), b, TOP_I32(d) + b);
+				dbg("i32.xor 0x%x 0x%x 0x%x\n", TOP_I32(d), b, TOP_I32(d) + b);
 				SET_I32(d, TOP_I32(d) ^ b);
 				break;
 			}
 			case 0x74: // i32.shl
 			{
 				const int32_t b = POP_I32(d);
-				D("i32.shl 0x%x 0x%x 0x%x\n", TOP_I32(d), b, TOP_I32(d) << b);
+				dbg("i32.shl 0x%x 0x%x 0x%x\n", TOP_I32(d), b, TOP_I32(d) << b);
 				SET_I32(d, TOP_I32(d) << b);
 				break;
 			}
@@ -3198,7 +3198,7 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 				const int32_t b = POP_I32(d);
 				const int32_t a = TOP_I32(d);
 				SET_I32(d, a >> b);
-				D("i32.shl 0x%x 0x%x 0x%x\n", a, b, TOP_I32(d));
+				dbg("i32.shl 0x%x 0x%x 0x%x\n", a, b, TOP_I32(d));
 				break;
 			}
 			case 0x76: // i32.shr_u
@@ -3206,7 +3206,7 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 				const uint32_t b = POP_U32(d);
 				const uint32_t a = TOP_U32(d);
 				SET_U32(d, a >> b);
-				D("i32.shr_u 0x%x 0x%x 0x%x\n", a, b, TOP_I32(d));
+				dbg("i32.shr_u 0x%x 0x%x 0x%x\n", a, b, TOP_I32(d));
 				break;
 			}
 			case 0x77: // i32.rotl
@@ -3216,7 +3216,7 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 				const uint32_t a = TOP_U32(d);
 				const uint32_t c = rotl32(a, b);
 				SET_U32(d, c);
-				D("i32.rotl 0x%x 0x%x 0x%x\n", a, b, c);
+				dbg("i32.rotl 0x%x 0x%x 0x%x\n", a, b, c);
 				break;
 			}
 			case 0x78: // i32.rotr
@@ -3225,7 +3225,7 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 				const uint32_t a = TOP_U32(d);
 				const uint32_t c = rotr32(a, b);
 				SET_U32(d, c);
-				D("i32.rotr 0x%x 0x%x 0x%x\n", a, b, c);
+				dbg("i32.rotr 0x%x 0x%x 0x%x\n", a, b, c);
 				break;
 			}
 			case 0x79: // i64.clz
@@ -3234,7 +3234,7 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 				const int64_t a = TOP_I64(d);
 				const int32_t c = __builtin_clzll(a);
 				SET_I32(d, c);
-				D("i64.clz 0x%llx %d\n", (long long)a, c);
+				dbg("i64.clz 0x%llx %d\n", (long long)a, c);
 				break;
 			}
 			case 0x7a: // i64.ctz
@@ -3243,7 +3243,7 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 				const int64_t a = TOP_I64(d);
 				const int32_t c = __builtin_ctzll(a);
 				SET_I32(d, c);
-				D("i64.ctz 0x%llx %d\n", (long long)a, c);
+				dbg("i64.ctz 0x%llx %d\n", (long long)a, c);
 				break;
 			}
 			case 0x7b: // i64.popcnt
@@ -3252,27 +3252,27 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 				const int64_t a = TOP_I64(d);
 				const int32_t c = __builtin_popcountll(a);
 				SET_I32(d, c);
-				D("i64.popcnt 0x%llx %d\n", (long long)a, c);
+				dbg("i64.popcnt 0x%llx %d\n", (long long)a, c);
 				break;
 			}
 			case 0x7c: // i64.add
 			{
 				const int64_t b = POP_I64(d);
-				D("i64.add 0x%llx 0x%llx 0x%llx\n", (long long)TOP_I64(d), (long long)b, (long long)TOP_I64(d)+b);
+				dbg("i64.add 0x%llx 0x%llx 0x%llx\n", (long long)TOP_I64(d), (long long)b, (long long)TOP_I64(d)+b);
 				SET_I64(d, TOP_I64(d) + b);
 				break;
 			}
 			case 0x7d: // i64.sub
 			{
 				const int64_t b = POP_I64(d);
-				D("i64.sub 0x%llx 0x%llx 0x%llx\n", (long long)TOP_I64(d), (long long)b, (long long)TOP_I64(d)-b);
+				dbg("i64.sub 0x%llx 0x%llx 0x%llx\n", (long long)TOP_I64(d), (long long)b, (long long)TOP_I64(d)-b);
 				SET_I64(d, TOP_I64(d) - b);
 				break;
 			}
 			case 0x7e: // i64.mul
 			{
 				const int64_t b = POP_I64(d);
-				D("i64.mul 0x%llx 0x%llx 0x%llx\n", (long long)TOP_I64(d), (long long)b, (long long)TOP_I64(d)*b);
+				dbg("i64.mul 0x%llx 0x%llx 0x%llx\n", (long long)TOP_I64(d), (long long)b, (long long)TOP_I64(d)*b);
 				SET_I64(d, TOP_I64(d) * b);
 				break;
 			}
@@ -3291,7 +3291,7 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 					return DWAC_INTEGER_OVERFLOW;
 				}
 				SET_I64(d, a / b);
-				D("i64.div_s 0x%llx 0x%llx 0x%llx\n", (long long unsigned)a, (long long unsigned)b, (long long unsigned)TOP_U64(d));
+				dbg("i64.div_s 0x%llx 0x%llx 0x%llx\n", (long long unsigned)a, (long long unsigned)b, (long long unsigned)TOP_U64(d));
 				break;
 			}
 			case 0x80: // i64.div_u
@@ -3304,7 +3304,7 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 					return DWAC_DIVIDE_BY_ZERO;
 				}
 				SET_U64(d, a / b);
-				D("i64.div_u 0x%llx 0x%llx 0x%llx\n", (long long unsigned)a, (long long unsigned)b, (long long unsigned)TOP_U64(d));
+				dbg("i64.div_u 0x%llx 0x%llx 0x%llx\n", (long long unsigned)a, (long long unsigned)b, (long long unsigned)TOP_U64(d));
 				break;
 			}
 			case 0x81: // i64.rem_s
@@ -3317,7 +3317,7 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 					return DWAC_DIVIDE_BY_ZERO;
 				}
 				SET_I64(d, ((a == 0x8000000000000000LL) && (b == -1)) ? 0 : a % b);
-				D("i64.rem_s 0x%llx 0x%llx 0x%llx\n", (long long unsigned)a, (long long unsigned)b, (long long unsigned)TOP_U64(d));
+				dbg("i64.rem_s 0x%llx 0x%llx 0x%llx\n", (long long unsigned)a, (long long unsigned)b, (long long unsigned)TOP_U64(d));
 				break;
 			}
 			case 0x82: // i64.rem_u
@@ -3330,27 +3330,27 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 					return DWAC_DIVIDE_BY_ZERO;
 				}
 				SET_U64(d, a % b);
-				D("i64.rem_u 0x%llx 0x%llx 0x%llx\n", (long long unsigned)a, (long long unsigned)b, (long long unsigned)TOP_U64(d));
+				dbg("i64.rem_u 0x%llx 0x%llx 0x%llx\n", (long long unsigned)a, (long long unsigned)b, (long long unsigned)TOP_U64(d));
 				break;
 			}
 			case 0x83: // i64.and
 			{
 				const int64_t b = POP_I64(d);
-				D("i64.and 0x%llx 0x%llx 0x%llx\n", (unsigned long long)TOP_U64(d), (unsigned long long)b, (unsigned long long)(TOP_U64(d) & b));
+				dbg("i64.and 0x%llx 0x%llx 0x%llx\n", (unsigned long long)TOP_U64(d), (unsigned long long)b, (unsigned long long)(TOP_U64(d) & b));
 				SET_I64(d, TOP_I64(d) & b);
 				break;
 			}
 			case 0x84: // i64.or
 			{
 				const int64_t b = POP_I64(d);
-				D("i64.or 0x%llx 0x%llx 0x%llx\n", (unsigned long long)TOP_U64(d), (unsigned long long)b, (unsigned long long)(TOP_U64(d) | b));
+				dbg("i64.or 0x%llx 0x%llx 0x%llx\n", (unsigned long long)TOP_U64(d), (unsigned long long)b, (unsigned long long)(TOP_U64(d) | b));
 				SET_I64(d, TOP_I64(d) | b);
 				break;
 			}
 			case 0x85: // i64.xor
 			{
 				const int64_t b = POP_I64(d);
-				D("i64.xor 0x%llx 0x%llx 0x%llx\n", (unsigned long long)TOP_U64(d), (unsigned long long)b, (unsigned long long)(TOP_U64(d) ^ b));
+				dbg("i64.xor 0x%llx 0x%llx 0x%llx\n", (unsigned long long)TOP_U64(d), (unsigned long long)b, (unsigned long long)(TOP_U64(d) ^ b));
 				SET_I64(d, TOP_I64(d) ^ b);
 				break;
 			}
@@ -3359,7 +3359,7 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 				const int64_t b = POP_I64(d);
 				const int64_t a = TOP_I64(d);
 				SET_I64(d, a << b);
-				D("i64.shl 0x%llx 0x%llx 0x%llx\n", (unsigned long long)a, (unsigned long long)b, (unsigned long long)(TOP_U64(d)));
+				dbg("i64.shl 0x%llx 0x%llx 0x%llx\n", (unsigned long long)a, (unsigned long long)b, (unsigned long long)(TOP_U64(d)));
 				break;
 			}
 			case 0x87: // i64.shr_S
@@ -3367,7 +3367,7 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 				const int64_t b = POP_I64(d);
 				const int64_t a = TOP_I64(d);
 				SET_I64(d, a >> b);
-				D("i64.shr_S 0x%llx 0x%llx 0x%llx\n", (unsigned long long)a, (unsigned long long)b, (unsigned long long)(TOP_U64(d)));
+				dbg("i64.shr_S 0x%llx 0x%llx 0x%llx\n", (unsigned long long)a, (unsigned long long)b, (unsigned long long)(TOP_U64(d)));
 				break;
 			}
 			case 0x88: // i64.shr_u
@@ -3375,7 +3375,7 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 				const uint64_t b = POP_U64(d);
 				const uint64_t a = TOP_I64(d);
 				SET_U64(d, a >> b);
-				D("i64.shr_u 0x%llx 0x%llx 0x%llx\n", (long long)a, (long long)b, (long long)TOP_I64(d));
+				dbg("i64.shr_u 0x%llx 0x%llx 0x%llx\n", (long long)a, (long long)b, (long long)TOP_I64(d));
 				break;
 			}
 			case 0x89: // i64.rotl
@@ -3404,7 +3404,7 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 			{
 				const float a = TOP_F32(d);
 				const float c = fabs(a);
-				D("f32.abs %g %g\n", a, c);
+				dbg("f32.abs %g %g\n", a, c);
 				SET_F32(d, c);
 				break;
 			}
@@ -3412,7 +3412,7 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 			{ // not tested
 				const float a = TOP_F32(d);
 				const float c = -a;
-				D("f32.neg %g %g\n", a, c);
+				dbg("f32.neg %g %g\n", a, c);
 				SET_F32(d, c);
 				break;
 			}
@@ -3420,35 +3420,35 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 			{ // not tested
 				float a = TOP_F32(d);
 				SET_F32(d, ceil(a));
-				D("f32.ceil %g %g\n", a, ceil(a));
+				dbg("f32.ceil %g %g\n", a, ceil(a));
 				break;
 			}
 			case 0x8e: // f32.floor
 			{
 				float a = TOP_F32(d);
 				SET_F32(d, floor(a));
-				D("f32.floor %g %g\n", a, floor(a));
+				dbg("f32.floor %g %g\n", a, floor(a));
 				break;
 			}
 			case 0x8f: // f32.trunc
 			{ // not tested
 				float a = TOP_F32(d);
 				SET_F32(d, trunc(a));
-				D("f32.trunc %g %g\n", a, trunc(a));
+				dbg("f32.trunc %g %g\n", a, trunc(a));
 				break;
 			}
 			case 0x90: // f32.nearest
 			{ // not tested
 				float a = TOP_F32(d);
 				SET_F32(d, rint(a));
-				D("f32.nearest %g %g\n", a, rint(a));
+				dbg("f32.nearest %g %g\n", a, rint(a));
 				break;
 			}
 			case 0x91: // f32.sqrt
 			{ // not tested
 				float a = TOP_F32(d);
 				SET_F32(d, sqrt(a));
-				D("f32.sqrt %g %g\n", a, sqrt(a));
+				dbg("f32.sqrt %g %g\n", a, sqrt(a));
 				break;
 			}
 			case 0x92: // f32.add
@@ -3456,7 +3456,7 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 				const float b = POP_F32(d);
 				const float a = TOP_F32(d);
 				const float c = a + b;
-				D("f32.add %g %g %g\n", a,b,c);
+				dbg("f32.add %g %g %g\n", a,b,c);
 				SET_F32(d, c);
 				break;
 			}
@@ -3465,7 +3465,7 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 				const float b = POP_F32(d);
 				const float a = TOP_F32(d);
 				const float c = a - b;
-				D("f32.sub %g %g %g\n", a,b,c);
+				dbg("f32.sub %g %g %g\n", a,b,c);
 				SET_F32(d, c);
 				break;
 			}
@@ -3474,7 +3474,7 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 				const float b = POP_F32(d);
 				const float a = TOP_F32(d);
 				const float c = a * b;
-				D("f32.mul %g %g %g\n", a,b,c);
+				dbg("f32.mul %g %g %g\n", a,b,c);
 				SET_F32(d, c);
 				break;
 			}
@@ -3483,7 +3483,7 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 				const float b = POP_F32(d);
 				const float a = TOP_F32(d);
 				const float c = a / b;
-				D("f32.div %g %g %g\n", a,b,c);
+				dbg("f32.div %g %g %g\n", a,b,c);
 				SET_F32(d, c);
 				break;
 			}
@@ -3493,7 +3493,7 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 				const float a = TOP_F32(d);
 				const float c = fmin(a, b);
 				SET_F32(d, c);
-				D("f32.min %g %g %g\n", a,b,c);
+				dbg("f32.min %g %g %g\n", a,b,c);
 				break;
 			}
 			case 0x97: // f32.max
@@ -3502,7 +3502,7 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 				const float a = TOP_F32(d);
 				const float c = fmax(a, b);
 				SET_F32(d, c);
-				D("f32.max %g %g %g\n", a,b,c);
+				dbg("f32.max %g %g %g\n", a,b,c);
 				break;
 			}
 			case 0x98: // f32.copysign
@@ -3511,7 +3511,7 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 				const float a = TOP_F32(d);
 				const float c = signbit(b) ? -fabs(a) : fabs(a);
 				SET_F32(d, c);
-				D("f32.copysign %g %g %g\n", a,b,c);
+				dbg("f32.copysign %g %g %g\n", a,b,c);
 				break;
 			}
 
@@ -3519,32 +3519,32 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 			{
 				const double a = TOP_F64(d);
 				SET_F64(d, fabs(a));
-				D("f64.abs %g %g\n", a, TOP_F64(d));
+				dbg("f64.abs %g %g\n", a, TOP_F64(d));
 				break;
 			}
 			case 0x9a: // f64.neg
 				SET_F64(d, -TOP_F64(d));
-				D("f64.neg %g\n", TOP_F64(d));
+				dbg("f64.neg %g\n", TOP_F64(d));
 				break;
 			case 0x9b: // f64.ceil
 				SET_F64(d, ceil(TOP_F64(d)));
-				D("f64.ceil %g\n", TOP_F64(d));
+				dbg("f64.ceil %g\n", TOP_F64(d));
 				break;
 			case 0x9c: // f64.floor
 				SET_F64(d, floor(TOP_F64(d)));
-				D("f64.floor %g\n", TOP_F64(d));
+				dbg("f64.floor %g\n", TOP_F64(d));
 				break;
 			case 0x9d: // f64.trunc
 				SET_F64(d, trunc(TOP_F64(d)));
-				D("f64.trunc %g\n", TOP_F64(d));
+				dbg("f64.trunc %g\n", TOP_F64(d));
 				break;
 			case 0x9e: // f64.nearest
 				SET_F64(d, rint(TOP_F64(d)));
-				D("f64.nearest %g\n", TOP_F64(d));
+				dbg("f64.nearest %g\n", TOP_F64(d));
 				break;
 			case 0x9f: // f64.sqrt
 				SET_F64(d, sqrt(TOP_F64(d)));
-				D("f64.sqrt %g\n", TOP_F64(d));
+				dbg("f64.sqrt %g\n", TOP_F64(d));
 				break;
 
 			case 0xa0: // f64.add
@@ -3552,7 +3552,7 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 				const double b = POP_F64(d);
 				const double a = TOP_F64(d);
 				SET_F64(d, a + b);
-				D("f64.add %g %g %g\n", a,b,TOP_F64(d));
+				dbg("f64.add %g %g %g\n", a,b,TOP_F64(d));
 				break;
 			}
 			case 0xa1: // f64.sub
@@ -3560,7 +3560,7 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 				const double b = POP_F64(d);
 				const double a = TOP_F64(d);
 				SET_F64(d, a - b);
-				D("f64.sub %g %g %g\n", a,b,TOP_F64(d));
+				dbg("f64.sub %g %g %g\n", a,b,TOP_F64(d));
 				break;
 			}
 			case 0xa2: // f64.mul
@@ -3568,7 +3568,7 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 				const double b = POP_F64(d);
 				const double a = TOP_F64(d);
 				SET_F64(d, a * b);
-				D("f64.mul %g %g %g\n", a,b,TOP_F64(d));
+				dbg("f64.mul %g %g %g\n", a,b,TOP_F64(d));
 				break;
 			}
 			case 0xa3: // f64.div
@@ -3576,7 +3576,7 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 				const double b = POP_F64(d);
 				const double a = TOP_F64(d);
 				SET_F64(d, a / b);
-				D("f64.div %g %g %g\n", a,b,TOP_F64(d));
+				dbg("f64.div %g %g %g\n", a,b,TOP_F64(d));
 				break;
 			}
 			case 0xa4: // f64.min
@@ -3584,7 +3584,7 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 				double b = POP_F64(d);
 				double a = TOP_F64(d);
 				SET_F64(d, fmin(a, b));
-				D("f64.min %g %g %g\n", a, b, TOP_F64(d));
+				dbg("f64.min %g %g %g\n", a, b, TOP_F64(d));
 				break;
 			}
 			case 0xa5: // f64.max
@@ -3592,7 +3592,7 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 				double b = POP_F64(d);
 				double a = TOP_F64(d);
 				SET_F64(d, fmax(a, b));
-				D("f64.max %g %g %g\n", a, b, TOP_F64(d));
+				dbg("f64.max %g %g %g\n", a, b, TOP_F64(d));
 				break;
 			}
 			case 0xa6: // f64.copysign
@@ -3601,7 +3601,7 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 				double a = TOP_F64(d);
 				double c = signbit(b) ? -fabs(a) : fabs(a);
 				SET_F64(d, c);
-				D("f64.copysign %g %g %g\n", a, b, c);
+				dbg("f64.copysign %g %g %g\n", a, b, c);
 				break;
 			}
 			#endif
@@ -3611,7 +3611,7 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 				// to type i32. If the number is larger than what an i32 can hold
 				// this operation will wrap, resulting in a different number.
 				SET_U64(d, TOP_U64(d) & 0x00000000ffffffff);
-				D("i32.wrap_i64 0x%llx\n", (unsigned long long)TOP_U64(d));
+				dbg("i32.wrap_i64 0x%llx\n", (unsigned long long)TOP_U64(d));
 				break;
 			}
 
@@ -3631,7 +3631,7 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 				}
 				const int32_t c = a;
 				SET_I32(d, c);
-				D("i32.trunc_f32_s %g %d\n", a, c);
+				dbg("i32.trunc_f32_s %g %d\n", a, c);
 				break;
 			}
 			case 0xa9: // i32.trunc_f32_u
@@ -3648,7 +3648,7 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 					return DWAC_INTEGER_OVERFLOW;
 				}
 				SET_U32(d, a);
-				D("i32.trunc_f32_u %g %u\n", a, TOP_U32(d));
+				dbg("i32.trunc_f32_u %g %u\n", a, TOP_U32(d));
 				break;
 			}
 			case 0xaa: // i32.trunc_f64_s
@@ -3666,7 +3666,7 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 				}
 				const int32_t c = a;
 				SET_I32(d, c);
-				D("i32.trunc_f64_s %g %d\n", a, c);
+				dbg("i32.trunc_f64_s %g %d\n", a, c);
 				break;
 			}
 			case 0xab: // i32.trunc_f64_u
@@ -3683,7 +3683,7 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 					return DWAC_INTEGER_OVERFLOW;
 				}
 				SET_U32(d, a);
-				D("i32.trunc_f64_u %g %u\n", a, TOP_U32(d));
+				dbg("i32.trunc_f64_u %g %u\n", a, TOP_U32(d));
 				break;
 			}
 			#endif
@@ -3693,14 +3693,14 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 				// i32 to type i64. There are signed and unsigned versions of this instruction.
 				const int32_t a = TOP_I32(d);
 				SET_I64(d, (int64_t)a);
-				D("i64.extend_i32_s %d %lld\n", a, (long long)TOP_I64(d));
+				dbg("i64.extend_i32_s %d %lld\n", a, (long long)TOP_I64(d));
 				break;
 			}
 			case 0xad: // i64.extend_i32_u
 			{
 				uint32_t a = TOP_U32(d);
 				SET_U64(d, (uint64_t)a);
-				D("i64.extend_i32_u 0x%x 0x%llx\n", a, (unsigned long long)TOP_U64(d));
+				dbg("i64.extend_i32_u 0x%x 0x%llx\n", a, (unsigned long long)TOP_U64(d));
 				break;
 			}
 
@@ -3720,7 +3720,7 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 				}
 				const int64_t c = a;
 				SET_I64(d, c);
-				D("i64.trunc_f32_s %g %lld\n", a, (long long)c);
+				dbg("i64.trunc_f32_s %g %lld\n", a, (long long)c);
 				break;
 			}
 			case 0xaf: // i64.trunc_f32_u
@@ -3738,7 +3738,7 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 				}
 				const uint64_t c = a;
 				SET_U64(d, c);
-				D("i64.trunc_f32_u %g %llu\n", a, (unsigned long long)c);
+				dbg("i64.trunc_f32_u %g %llu\n", a, (unsigned long long)c);
 				break;
 			}
 			case 0xb0: // i64.trunc_f64_s
@@ -3756,7 +3756,7 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 				}
 				const int64_t c = a;
 				SET_I64(d, c);
-				D("i64.trunc_f64_s %g %llu\n", a, (long long)c);
+				dbg("i64.trunc_f64_s %g %llu\n", a, (long long)c);
 				break;
 			}
 			case 0xb1: // i64.trunc_f64_u
@@ -3774,85 +3774,85 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 				}
 				const uint64_t c = a;
 				SET_U64(d, c);
-				D("i64.trunc_f64_u %g %llu\n", a, (unsigned long long)c);
+				dbg("i64.trunc_f64_u %g %llu\n", a, (unsigned long long)c);
 				break;
 			}
 			case 0xb2: // f32.convert_i32_s
 			{
 				int32_t a = TOP_I32(d);
 				SET_F32I(d, a);
-				D("f32.convert_i32_s 0x%x %g\n", a, TOP_F32(d));
+				dbg("f32.convert_i32_s 0x%x %g\n", a, TOP_F32(d));
 				break;
 			}
 			case 0xb3: // f32.convert_i32_u
 			{// not tested
 				SET_F32(d, TOP_U64(d));
-				D("f32.convert_i32_u %g\n", TOP_F32(d));
+				dbg("f32.convert_i32_u %g\n", TOP_F32(d));
 				break;
 			}
 			case 0xb4: // f32.convert_i64_s
 				SET_F32(d, TOP_I64(d));
-				D("f32.convert_i64_s %g\n", TOP_F32(d));
+				dbg("f32.convert_i64_s %g\n", TOP_F32(d));
 				break;
 			case 0xb5: // f32.convert_i64_u
 				SET_F32(d, TOP_U64(d));
-				D("f32.convert_i64_u %g\n", TOP_F32(d));
+				dbg("f32.convert_i64_u %g\n", TOP_F32(d));
 				break;
 			case 0xb6: // f32.demote_f64
 			{
 				const double a = TOP_F64(d);
 				const float b = a;
 				SET_F32(d, b);
-				D("f32.demote_f64 %g\n", TOP_F32(d));
+				dbg("f32.demote_f64 %g\n", TOP_F32(d));
 				break;
 			}
 			case 0xb7: // f64.convert_i32_s
 				SET_F64(d, TOP_I32(d));
-				D("f64.convert_i32_s %g\n", TOP_F64(d));
+				dbg("f64.convert_i32_s %g\n", TOP_F64(d));
 				break;
 			case 0xb8: // f64.convert_i32_u
 				SET_F64(d, TOP_U32(d));
-				D("f64.convert_i32_u %g\n", TOP_F64(d));
+				dbg("f64.convert_i32_u %g\n", TOP_F64(d));
 				break;
 			case 0xb9: // f64.convert_i64_s
 				SET_F64(d, TOP_I64(d));
-				D("f64.convert_i64_s %g\n", TOP_F64(d));
+				dbg("f64.convert_i64_s %g\n", TOP_F64(d));
 				break;
 			case 0xba: // f64.convert_i64_u
 				SET_F64(d, TOP_U64(d));
-				D("f64.convert_i64_u %g\n", TOP_F64(d));
+				dbg("f64.convert_i64_u %g\n", TOP_F64(d));
 				break;
 			case 0xbb: // f64.promote_f32
 			{
 				const float a = TOP_F32(d);
 				const double b = a;
 				SET_F64(d, b);
-				D("f64.promote_f32 %g\n", TOP_F64(d));
+				dbg("f64.promote_f32 %g\n", TOP_F64(d));
 				break;
 			}
 			case 0xbc: // i32.reinterpret_f32
 			{// not tested
 				// [2] The reinterpret instructions, are used to reinterpret the bits of a number as a different type.
 				// do nothing.
-				D("i32.reinterpret_f32 0x%x %g\n", TOP_I32(d), TOP_F32(d));
+				dbg("i32.reinterpret_f32 0x%x %g\n", TOP_I32(d), TOP_F32(d));
 				break;
 			}
 			case 0xbd: // i64.reinterpret_f64
 			{
 				// do nothing.
-				D("i64.reinterpret_f64 0x%llx %g\n", (long long unsigned)TOP_I64(d), TOP_F64(d));
+				dbg("i64.reinterpret_f64 0x%llx %g\n", (long long unsigned)TOP_I64(d), TOP_F64(d));
 				break;
 			}
 			case 0xbe: // f32.reinterpret_i32
 			{   // not tested
 				// do nothing.
-				D("f32.reinterpret_i32 0x%x %g\n", TOP_I32(d), TOP_F32(d));
+				dbg("f32.reinterpret_i32 0x%x %g\n", TOP_I32(d), TOP_F32(d));
 				break;
 			}
 			case 0xbf: // f64.reinterpret_i64
 			{   // not tested
 				// do nothing.
-				D("f64.reinterpret_i64 0x%llx %g\n", (long long unsigned)TOP_I64(d), TOP_F64(d));
+				dbg("f64.reinterpret_i64 0x%llx %g\n", (long long unsigned)TOP_I64(d), TOP_F64(d));
 				break;
 			}
 			#endif
@@ -3939,7 +3939,7 @@ static long run_init_expr(const dwac_prog *p, dwac_data *d, uint8_t type, uint32
 	assert(d->sp == DWAC_SP_INITIAL);
 	d->fp = STACK_SIZE(d);
 
-	D("run_init_expr 0x%x 0x%x 0x%llx\n", d->fp, d->sp, (long long)d->pc.pos);
+	dbg("run_init_expr 0x%x 0x%x 0x%llx\n", d->fp, d->sp, (long long)d->pc.pos);
 
 	long r = dwac_tick(p, d);
 
@@ -3968,7 +3968,7 @@ static void* find_imported_function(const dwac_prog *p, const char *name)
 // We need some dwac_data in "Element Section" anyway.
 dwac_result dwac_parse_prog_sections(dwac_prog *p, dwac_data *d, const uint8_t *bytes, uint32_t byte_count, FILE* log)
 {
-	D("dwac_parse_prog_sections %d\n", byte_count);
+	dbg("dwac_parse_prog_sections %d\n", byte_count);
 
 	const size_t max_nof = 16 + byte_count/16;
 
@@ -3980,7 +3980,7 @@ dwac_result dwac_parse_prog_sections(dwac_prog *p, dwac_data *d, const uint8_t *
 	{
 		const uint32_t magic_word = leb_read_uint32(&p->bytecodes);
 		const uint32_t magic_version = leb_read_uint32(&p->bytecodes);
-		D("Magic %08x %x\n", magic_word, magic_version);
+		dbg("Magic %08x %x\n", magic_word, magic_version);
 		if ((magic_word != DWAC_MAGIC) || (magic_version != DWAC_VERSION))
 		{
 			snprintf(d->exception, sizeof(d->exception), "Not WebAsm or not supported version 0x%08x 0x%08x", magic_word, magic_version);
@@ -3991,14 +3991,14 @@ dwac_result dwac_parse_prog_sections(dwac_prog *p, dwac_data *d, const uint8_t *
 	// Read the sections
 	while (p->bytecodes.pos < p->bytecodes.nof)
 	{
-		D("next byte %02x\n", p->bytecodes.array[p->bytecodes.pos]);
+		dbg("next byte %02x\n", p->bytecodes.array[p->bytecodes.pos]);
 		uint32_t section_id = leb_read(&p->bytecodes, 7);
 		uint32_t tmp = ~section_id;
-		D("section_id %02x\n", section_id);
+		dbg("section_id %02x\n", section_id);
 		uint32_t section_len = leb_read(&p->bytecodes, 32);
 		const uint32_t section_begin = p->bytecodes.pos;
-		D("Parsing prog section %d, pos 0x%llx, len %d\n", section_id, (long long)p->bytecodes.pos, section_len);
-		D("section_id %02x\n", section_id);
+		dbg("Parsing prog section %d, pos 0x%llx, len %d\n", section_id, (long long)p->bytecodes.pos, section_len);
+		dbg("section_id %02x\n", section_id);
 		assert(tmp == ~section_id);
 		switch (section_id)
 		{
@@ -4012,7 +4012,7 @@ dwac_result dwac_parse_prog_sections(dwac_prog *p, dwac_data *d, const uint8_t *
 				// This is how to read that section.
 				size_t strlen = 0;
 				const char* csname = leb_read_string(&p->bytecodes, &strlen);
-				D("Custom Section %d %.*s\n", section_len, (int)strlen, csname);
+				dbg("Custom Section %d %.*s\n", section_len, (int)strlen, csname);
 				if (memcmp(csname, "name", 4)==0)
 				{
 					// https://webassembly.github.io/spec/core/appendix/custom.html
@@ -4020,7 +4020,7 @@ dwac_result dwac_parse_prog_sections(dwac_prog *p, dwac_data *d, const uint8_t *
 					{
 						uint8_t subsection_id = leb_read_uint8(&p->bytecodes);
 						uint32_t subsection_len = leb_read(&p->bytecodes, 32);
-						D("  name subsection %d %d\n", subsection_id, subsection_len);
+						dbg("  name subsection %d %d\n", subsection_id, subsection_len);
 						switch(subsection_id)
 						{
 							case 1:
@@ -4031,7 +4031,7 @@ dwac_result dwac_parse_prog_sections(dwac_prog *p, dwac_data *d, const uint8_t *
 									size_t func_name_len = 0;
 									uint32_t func_idx = leb_read(&p->bytecodes, 32);
 									const char* func_name = leb_read_string(&p->bytecodes, &func_name_len);
-									D("    %d %.*s\n", func_idx, (int)func_name_len, func_name);
+									dbg("    %d %.*s\n", func_idx, (int)func_name_len, func_name);
 									if (func_name_len>DWAC_HASH_LIST_MAX_KEY_SIZE)
 									{
 										func_name_len = DWAC_HASH_LIST_MAX_KEY_SIZE;
@@ -4048,11 +4048,11 @@ dwac_result dwac_parse_prog_sections(dwac_prog *p, dwac_data *d, const uint8_t *
 								break;
 						}
 					}
-					printf("\n");
+					dbg("end of custom section name\n");
 				}
 				p->bytecodes.pos = section_begin + section_len;
 				#else
-				D("Custom Section ignored %d %s\n", section_len, p->bytecodes.array + p->bytecodes.pos);
+				dbg("Custom Section ignored %d %s\n", section_len, p->bytecodes.array + p->bytecodes.pos);
 				p->bytecodes.pos += section_len;
 				#endif
 				break;
@@ -4101,7 +4101,7 @@ dwac_result dwac_parse_prog_sections(dwac_prog *p, dwac_data *d, const uint8_t *
 
 					char tmp[256];
 					dwac_func_type_to_string(tmp, sizeof(tmp), type);
-					D("Type %u %s\n", i, tmp);
+					dbg("Type %u %s\n", i, tmp);
 				}
 				break;
 			case 2:
@@ -4449,7 +4449,7 @@ dwac_result dwac_parse_prog_sections(dwac_prog *p, dwac_data *d, const uint8_t *
 
 dwac_result dwac_parse_data_sections(const dwac_prog *p, dwac_data *d)
 {
-	D("dwac_parse_data_sections\n");
+	dbg("dwac_parse_data_sections\n");
 
 	const size_t max_nof = 16 + p->bytecodes.nof/16;
 
@@ -4464,7 +4464,7 @@ dwac_result dwac_parse_data_sections(const dwac_prog *p, dwac_data *d)
 		uint32_t id = leb_read(&d->pc, 7);
 		uint32_t section_len = leb_read(&d->pc, 32);
 		const uint32_t section_begin = d->pc.pos;
-		D("Parsing data section %d, pos 0x%llx, len %d\n", id, (long long)p->bytecodes.pos, section_len);
+		dbg("Parsing data section %d, pos 0x%llx, len %d\n", id, (long long)p->bytecodes.pos, section_len);
 
 		switch (id)
 		{
@@ -4501,7 +4501,7 @@ dwac_result dwac_parse_data_sections(const dwac_prog *p, dwac_data *d)
 					d->memory.maximum_size_in_pages = DWAC_MAX_NOF_PAGES;
 				}
 
-				D("Memory: nof pages %u, page_size %u, total in bytes %zu\n", d->memory.current_size_in_pages, DWAC_PAGE_SIZE, (size_t) wa_get_mem_size(d));
+				dbg("Memory: nof pages %u, page_size %u, total in bytes %zu\n", d->memory.current_size_in_pages, DWAC_PAGE_SIZE, (size_t) wa_get_mem_size(d));
 				break;
 			}
 			case 6: // [1] 5.5.9. Global Section
@@ -4527,7 +4527,7 @@ dwac_result dwac_parse_data_sections(const dwac_prog *p, dwac_data *d)
 
 					char tmp[64];
 					dwac_value_and_type_to_string(tmp, sizeof(tmp), &TOP(d), globaltype);
-					D("Global %u 0x%x %s\n", i, globaltype, tmp);
+					dbg("Global %u 0x%x %s\n", i, globaltype, tmp);
 
 					// Now take the value from stack.
 					int64_t v = POP_I64(d);
@@ -4725,7 +4725,7 @@ dwac_result dwac_set_command_line_arguments(dwac_data *d, uint32_t argc, const c
 
 dwac_result dwac_call_exported_function(const dwac_prog *p, dwac_data *d, uint32_t func_idx)
 {
-	long r = dwac_setup_function_call(p, d, func_idx);
+	dwac_result r = dwac_setup_function_call(p, d, func_idx);
 	if (r) {return r;}
 	return dwac_tick(p, d);
 }
@@ -4750,7 +4750,7 @@ long long dwac_total_memory_usage(dwac_data *d)
 
 long dwac_report_result(const dwac_prog *p, dwac_data *d, const dwac_function *f, FILE* log)
 {
-	D("report_result\n");
+	dbg("report_result\n");
 	assert(log);
 	long ret_val = 0;
 	// If the called function had a return value it should be on the stack.
@@ -4815,7 +4815,7 @@ void dwac_log_block_stack(const dwac_prog *p, dwac_data *d)
 
 void dwac_prog_deinit(dwac_prog *p)
 {
-	D("dwac_prog_deinit\n");
+	dbg("dwac_prog_deinit\n");
 
 	#ifdef LOG_FUNC_NAMES
 	dwac_linear_storage_size_deinit(&p->func_names);
@@ -4882,10 +4882,10 @@ void dwac_prog_deinit(dwac_prog *p)
 
 void dwac_data_init(dwac_data *d)
 {
-	D("dwac_data_init\n");
+	dbg("dwac_data_init\n");
 	memset(d, 0, sizeof(dwac_data));
 
-	D("sizeof(wa_value_type) %zu\n", sizeof(dwac_value_type));
+	dbg("sizeof(wa_value_type) %zu\n", sizeof(dwac_value_type));
 
 	// Put some magic number in the far end of stack.
 	// For performance reasons we don't check for stack overflow at every push or pop.
@@ -4904,13 +4904,13 @@ void dwac_data_init(dwac_data *d)
 	d->sp = DWAC_SP_INITIAL; // Not zero but -1 here (CPU optimize from ref [3]).
 	d->fp = STACK_SIZE(d);
 	d->block_stack.size = 0;
-	D("wa_data_init 0x%x 0x%x 0x%llx\n", d->fp, d->sp, (long long)d->pc.pos);
+	dbg("wa_data_init 0x%x 0x%x 0x%llx\n", d->fp, d->sp, (long long)d->pc.pos);
 
 }
 
 void dwac_data_deinit(dwac_data *d, FILE* log)
 {
-	D("dwac_data_deinit\n");
+	dbg("dwac_data_deinit\n");
 	assert(d->exception[sizeof(d->exception)-1]==0);
 
 	if (log) {
@@ -4935,7 +4935,7 @@ void dwac_data_deinit(dwac_data *d, FILE* log)
 
 void dwac_prog_init(dwac_prog *p)
 {
-	D("dwac_prog_init\n");
+	dbg("dwac_prog_init\n");
 	memset(p, 0, sizeof(dwac_prog));
 	dwac_hash_list_init(&p->available_functions_list);
 	dwac_hash_list_init(&p->exported_functions_list);

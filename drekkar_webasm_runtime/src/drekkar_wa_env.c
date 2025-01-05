@@ -53,9 +53,9 @@ Created October 2023 by Henrik
 
 
 #ifdef DBG
-#define D(...) {fprintf(stdout, __VA_ARGS__);}
+#define dbg(...) {fprintf(stdout, __VA_ARGS__);}
 #else
-#define D(...)
+#define dbg(...)
 #endif
 
 
@@ -396,7 +396,7 @@ static void fd_read(dwac_data *d)
     uint32_t iovs_offset = dwac_pop_value_i64(d);
     int32_t  fd = dwac_pop_value_i64(d);
 
-    D("fd_read %d %d %d %d\n", fd, iovs_offset, iovs_len, nread_offset);
+    dbg("fd_read %d %d %d %d\n", fd, iovs_offset, iovs_len, nread_offset);
 
 
 	// Translate from script internal to host addresses.
@@ -431,7 +431,7 @@ static void fd_read(dwac_data *d)
 
 	*nread_offset_ptr = n;
 
-    D("fd_read n = %ld\n", n);
+    dbg("fd_read n = %ld\n", n);
 
 	//snprintf(d->exception, sizeof(d->exception), "Not implemented:fd_read");
 
@@ -448,7 +448,7 @@ static void fd_close(dwac_data *d)
 	uint32_t fd = dwac_pop_value_i64(d);
 
 	assert(fd == 3); // TODO
-	D("fd_close %d\n", fd);
+	dbg("fd_close %d\n", fd);
 	close(fd);
 
 	dwac_push_value_i64(d, WASI_ESUCCESS);
@@ -485,7 +485,7 @@ static void syscall_readlink(dwac_data *d)
 
 	ssize_t r = readlink(pathname_ptr, buf_ptr, bufsiz);
 
-	D("env/__syscall_readlink '%s' %zd %u '%s'\n", pathname_ptr, r, bufsiz, buf_ptr);
+	dbg("env/__syscall_readlink '%s' %zd %u '%s'\n", pathname_ptr, r, bufsiz, buf_ptr);
 
 	dwac_push_value_i64(d, r);
 }
@@ -669,7 +669,7 @@ static void args_sizes_get(dwac_data *ctx)
 	*argc_ptr = ctx->dwac_emscripten_argc;
 	*argv_buf_size_ptr = wa_get_command_line_arguments_string_size(ctx->dwac_emscripten_argc, ctx->dwac_emscripten_argv);
 
-	printf("args_sizes_get %u %u %d %zu\n", argc, argv_buf_size, ctx->dwac_emscripten_argc, ctx->memory.arguments.size);
+	dbg("args_sizes_get %u %u %d %zu\n", argc, argv_buf_size, ctx->dwac_emscripten_argc, ctx->memory.arguments.size);
 
 	dwac_push_value_i64(ctx, 0);
 }
@@ -682,7 +682,7 @@ static void args_get(dwac_data *ctx)
 	uint32_t argv_buf = dwac_pop_value_i64(ctx);
 	uint32_t argv = dwac_pop_value_i64(ctx);
 
-	printf("args_get %u %u\n", argv, argv_buf);
+	dbg("args_get %u %u\n", argv, argv_buf);
 
 	uint8_t* argv_ptr = (uint8_t*)dwac_translate_to_host_addr_space(ctx, argv, (DWAC_PTR_SIZE * ctx->dwac_emscripten_argc));
 
@@ -723,10 +723,10 @@ static void proc_exit(dwac_data *ctx)
 
 	int64_t exit_code = dwac_pop_value_i64(ctx);
 
-	snprintf(ctx->exception, sizeof(ctx->exception), "exit %lld", (long long int)exit_code);
+	snprintf(ctx->exception, sizeof(ctx->exception), "exit %lld (not implemented yet)", (long long int)exit_code);
 
 	// TODO Program shall exit with this code.
-	// exit(exit_code);
+	exit(exit_code);
 	// But this is not great if more than one guest program is running.
 	// Will just put the result back on stack for now.
 
@@ -751,7 +751,7 @@ static void syscall_getdents64(dwac_data *d)
 
 	uint32_t nread = syscall(SYS_getdents64, fd, buf_ptr, buf_size);
 
-	D("env/__syscall_getdents64 %x %x\n", fd, buf_size);
+	dbg("env/__syscall_getdents64 %x %x\n", fd, buf_size);
 
 	dwac_push_value_i64(d, nread);
 }
@@ -762,7 +762,7 @@ static void syscall_getdents64(dwac_data *d)
 // need to be disabled (comment out registration of those).
 static void register_functions(dwac_prog *p)
 {
-	D("register_functions\n");
+	dbg("register_functions\n");
 
 	dwac_register_function(p, "wasi_snapshot_preview1/fd_write", wa_fd_write);
 	dwac_register_function(p, "wasi_snapshot_preview1/fd_read", fd_read);
@@ -828,7 +828,7 @@ static dwac_result check_exception(const dwac_prog *p, dwac_data *d, long r)
 
 static dwac_result set_command_line_arguments(dwac_env_type *e)
 {
-	D("set_command_line_arguments %d\n", e->argc);
+	dbg("set_command_line_arguments %d\n", e->argc);
 
 	if (e->function_name)
 	{
@@ -852,21 +852,21 @@ static dwac_result set_command_line_arguments(dwac_env_type *e)
 
 static long parse_prog_sections(dwac_prog *p, dwac_data *d, uint8_t *bytes, size_t file_size, FILE *log)
 {
-	D("parse_prog_sections\n");
+	dbg("parse_prog_sections\n");
 	const long r = dwac_parse_prog_sections(p, d, bytes, file_size, log);
 	return check_exception(p, d, r);
 }
 
 static dwac_result parse_data_sections(const dwac_prog *p, dwac_data *d)
 {
-	D("parse_data_sections\n");
+	dbg("parse_data_sections\n");
 	const long r = dwac_parse_data_sections(p, d);
 	return check_exception(p, d, r);;
 }
 
 static dwac_result call_and_run_exported_function(const dwac_prog *p, dwac_data *d, const dwac_function *f, FILE* log)
 {
-	D("call_and_run_exported_function\n");
+	dbg("call_and_run_exported_function\n");
 	long long total_gas_usage = 0;
 	dwac_result r = dwac_call_exported_function(p, d, f->func_idx);
 	for(;;)
@@ -898,7 +898,7 @@ static dwac_result call_and_run_exported_function(const dwac_prog *p, dwac_data 
 
 static dwac_result call_errno(dwac_env_type *e)
 {
-	D("call_errno\n");
+	dbg("call_errno\n");
 	const dwac_function* f = dwac_find_exported_function(e->p, "__errno_location");
 	if (f != NULL)
 	{
@@ -911,7 +911,7 @@ static dwac_result call_errno(dwac_env_type *e)
 
 static dwac_result call_ctors(const dwac_prog *p, dwac_data *d)
 {
-	D("call_ctors\n");
+	dbg("call_ctors\n");
 	const dwac_function* f = dwac_find_exported_function(p, "__wasm_call_ctors");
 	if (f != NULL)
 	{
@@ -922,7 +922,7 @@ static dwac_result call_ctors(const dwac_prog *p, dwac_data *d)
 
 static const dwac_function* find_main(const dwac_prog *p)
 {
-	D("find_main\n");
+	dbg("find_main\n");
 	const dwac_function *f = NULL;
 	if (f == NULL) {f = dwac_find_exported_function(p, "__main_argc_argv");}
 	if (f == NULL) {f = dwac_find_exported_function(p, "main");}
@@ -934,7 +934,7 @@ static const dwac_function* find_main(const dwac_prog *p)
 
 static dwac_result find_and_call(dwac_env_type *e)
 {
-	D("find_and_call\n");
+	dbg("find_and_call\n");
 	dwac_result r = call_errno(e);
 	r = check_exception(e->p, e->d, r);
 	if (r) {return r;}
@@ -967,8 +967,8 @@ static dwac_result find_and_call(dwac_env_type *e)
 // Returns zero (DWAC_OK) if OK.
 dwac_result dwae_init(dwac_env_type *e)
 {
-	D("dwae_init\n");
-	long r = 0;
+	dbg("dwae_init\n");
+	dwac_result r = DWAC_OK;
 
 	dwac_st_init();
 	e->p = DWAC_ST_MALLOC(sizeof(dwac_prog));
@@ -1009,9 +1009,9 @@ dwac_result dwae_init(dwac_env_type *e)
 
 dwac_result dwae_tick(dwac_env_type *e)
 {
-	D("dwae_tick\n");
+	dbg("dwae_tick\n");
 
-	dwac_result r = 0;
+	dwac_result r = DWAC_OK;
 
 	r = parse_data_sections(e->p, e->d);
 	if (r) {return r;}
@@ -1027,7 +1027,7 @@ dwac_result dwae_tick(dwac_env_type *e)
 
 void dwae_deinit(dwac_env_type *e)
 {
-	D("dwae_deinit\n");
+	dbg("dwae_deinit\n");
 	dwac_data_deinit(e->d, e->log);
 	dwac_prog_deinit(e->p);
 	dwac_linear_storage_8_deinit(&e->bytes);
