@@ -46,7 +46,7 @@
 // Warning! We do not follow this at early stages when major is 0.
 #define DREKKAR_VERSION_MAJOR 1
 #define DREKKAR_VERSION_MINOR 1
-#define DREKKAR_VERSION_PATCH 3
+#define DREKKAR_VERSION_PATCH 7
 
 
 #define DREKKAR_VERSION_STRING DREKKAR_VERSION_NAME " " DREKKAR_VER_XSTR(DREKKAR_VERSION_MAJOR) "." DREKKAR_VER_XSTR(DREKKAR_VERSION_MINOR) "." DREKKAR_VER_XSTR(DREKKAR_VERSION_PATCH)
@@ -177,15 +177,10 @@ void dwac_hash_list_deinit(dwac_hash_list *list);
 long dwac_hash_list_put(dwac_hash_list *list, const char* key_ptr, void* ptr);
 void* dwac_hash_list_find(const dwac_hash_list *list, const char* key_ptr);
 
-
 // End of file hash_list.h
 
 
-
-
 // Begin of file linear_storage_64.h
-
-
 
 typedef struct dwac_linear_storage_64_type dwac_linear_storage_64_type;
 
@@ -682,9 +677,11 @@ typedef struct dwac_memory
 	dwac_linear_storage_8_type  arguments; // Area where command line arguments are stored.
 } dwac_memory;
 
-// Stores all data for a WebAssembly.Instance.
+// Stores all data for a WebAssembly instance. Also called context.
+// TODO If serialize/deserialize functions for this are made then store, load & continue should be possible.
 struct dwac_data
 {
+	const dwac_prog* p;
 	dwac_leb128_reader_type pc;
 
 	// Main stack and stack pointer.
@@ -705,7 +702,7 @@ struct dwac_data
 	// This can be removed if no syscalls will be used.
 	uint32_t errno_location;
 
-	char exception[256]; // If an error happens, additional info might be written here.
+	char exception[96]; // If an error happens, additional info might be written here.
 
 	// Some additions for emscripten.
 	int dwac_emscripten_argc;
@@ -714,14 +711,14 @@ struct dwac_data
 
 size_t dwac_func_type_to_string(char *buf, size_t size, const dwac_func_type_type *type);
 int dwac_value_and_type_to_string(char* buf, size_t size, const dwac_value_type *v, uint8_t t);
-dwac_result dwac_setup_function_call(const dwac_prog *p, dwac_data *d, uint32_t fidx);
-dwac_result dwac_tick(const dwac_prog *p, dwac_data *d);
+dwac_result dwac_setup_function_call(dwac_data *d, uint32_t fidx);
+dwac_result dwac_tick(dwac_data *d);
 const dwac_function *dwac_find_exported_function(const dwac_prog *p, const char *name);
 dwac_result dwac_parse_prog_sections(dwac_prog *p, dwac_data *d, const uint8_t *bytes, uint32_t byte_count, FILE* log);
-dwac_result dwac_parse_data_sections(const dwac_prog *p, dwac_data *d);
+dwac_result dwac_parse_data_sections(dwac_data *d);
 void dwac_prog_init(dwac_prog *p);
 void dwac_prog_deinit(dwac_prog *p);
-void dwac_data_init(dwac_data *d);
+void dwac_data_init(dwac_data *d, const dwac_prog* p);
 void dwac_data_deinit(dwac_data *d, FILE* log);
 dwac_result dwac_set_command_line_arguments(dwac_data *d, uint32_t argc, const char **argv);
 void* dwac_translate_to_host_addr_space(dwac_data *d, uint32_t offset, size_t size);
@@ -729,10 +726,11 @@ void dwac_register_function(dwac_prog *p, const char* name, dwac_func_ptr ptr);
 void dwac_push_value_i64(dwac_data *d, int64_t v);
 int64_t dwac_pop_value_i64(dwac_data *d);
 const dwac_func_type_type* dwac_get_func_type_ptr(const dwac_prog *p, int32_t type_idx);
-dwac_result dwac_call_exported_function(const dwac_prog *p, dwac_data *d, uint32_t func_idx);
+dwac_result dwac_call_exported_function(dwac_data *d, uint32_t func_idx);
 const char* dwac_get_func_name(const dwac_prog *p, long function_idx);
 long long dwac_total_memory_usage(dwac_data *d);
-void dwac_log_result(const dwac_prog *p, const dwac_data *d, const dwac_function *f, FILE* log);
-void dwac_log_block_stack(const dwac_prog *p, dwac_data *d);
+void dwac_log_result(const dwac_data *d, const dwac_function *f, FILE* log);
+void dwac_log_block_stack(dwac_data *d);
 int dwac_get_return_value(const dwac_data *d);
+
 #endif

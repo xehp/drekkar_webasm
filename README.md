@@ -16,9 +16,10 @@ This program was developed on Linux, it's not tested on other OSes.
 To see what is tested check the test_code/reg_test.c file. To see what 
 is not tested check the source code for comments about "not tested".
 
-This runtum is an interpreter and not a compiler. So it is not so fast.
-We are working on some optimizations that seem to be able to run 5-10
-times faster than the current version.
+This runtime is an interpreter (not a compiler). So it is not very fast.
+We are working on some optimizations that are a lot faster. The reg test
+runs 7 times faster with the optimized version. The optimizations are not
+yet sufficiently tested for release here though.
 
 Copyright (C) 2023<br>
 Henrik Bjorkman http://www.eit.se/hb<br>
@@ -80,7 +81,12 @@ That is the final reg test, this is the output:
 
 Some warnings but ignoring those, it looks like YES!
 
-Update
-With latest Emscripten version 3.1.6 the above no longer works. 
-Something is wrong with fopen and/or __syscall_open. 
-Don't remember which version of Emscripten we used when it worked.
+<p>
+Update 2025-01-07<br>
+With latest Emscripten version 3.1.6 or 3.1.74 the above no longer works. 
+It can't open local files with fopen. See test code 'read_test.c'.
+It does not work with node either. Probably emscripten have changed something. 
+Don't remember which version of Emscripten we used when it last worked. 
+We don't need local files in our own application anyway so its not a priority 
+but it was a nice test to run the environement itself when it works.
+

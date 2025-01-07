@@ -436,7 +436,6 @@ void dwac_hash_list_init(dwac_hash_list *list)
 	list->array = DWAC_ST_MALLOC(list->capacity*sizeof(dwac_hash_entry));
 	memset(list->array, 0, list->capacity*sizeof(dwac_hash_entry));
 	//D("hash_list initial capacity %ld\n", list->capacity);
-
 }
 
 void dwac_hash_list_deinit(dwac_hash_list *list)
@@ -571,13 +570,7 @@ void* dwac_hash_list_find(const dwac_hash_list *list, const char* key_ptr)
 
 
 
-
-
-
-
 // Begin of file linear_storage_64.h
-
-
 
 void dwac_linear_storage_64_init(dwac_linear_storage_64_type* s)
 {
@@ -611,7 +604,7 @@ static void linear_storage_64_grow_buffer_if_needed(dwac_linear_storage_64_type 
 		else
 		{
 			// Need to make a bigger list. Make it at least twice bigger
-			// so that we dont need to resize too often.
+			// so that we don't need to resize too often.
 			long new_capacity = s->capacity * 2;
 			if (new_capacity < needed_capacity) {new_capacity = needed_capacity;}
 			s->array = DWAC_ST_RESIZE(s->array, s->capacity  * sizeof(uint64_t), new_capacity * sizeof(uint64_t));
@@ -1321,7 +1314,6 @@ static uint32_t sp_dec(dwac_data * d)
 
 #define STACK_SIZE(d) (((d)->sp) + DWAC_SP_OFFSET)
 
-
 #define INVALID_FUNCTION_INDEX 0xFFFFFFFF
 #define WA_MAGIC_STACK_VALUE 0x7876898575
 
@@ -1749,8 +1741,9 @@ static long get_oplen(const uint8_t *ptr)
 }
 
 
-static uint32_t find_br_addr(const dwac_prog *p, const dwac_data *d, uint32_t pos)
+static uint32_t find_br_addr(dwac_data *d, uint32_t start_pos)
 {
+	uint32_t pos = start_pos;
 	uint32_t level = 1;
 	for(;;)
 	{
@@ -1781,11 +1774,12 @@ static uint32_t find_br_addr(const dwac_prog *p, const dwac_data *d, uint32_t po
 		}
 		pos += get_oplen(d->pc.array + pos);
 	}
-	return pos;
+	return 0;
 }
 
-static uint32_t find_else_or_end(const dwac_prog *p, const dwac_data *d, uint32_t pos)
+static uint32_t find_else_or_end(dwac_data *d, uint32_t start_pos)
 {
+	uint32_t pos = start_pos;
 	uint32_t level = 1;
 	for(;;)
 	{
@@ -1820,7 +1814,7 @@ static uint32_t find_else_or_end(const dwac_prog *p, const dwac_data *d, uint32_
 		}
 		pos += get_oplen(d->pc.array + pos);
 	}
-	return pos;
+	return 0;
 }
 
 
@@ -1831,9 +1825,10 @@ static uint32_t find_else_or_end(const dwac_prog *p, const dwac_data *d, uint32_
 //
 // If "gas metering" is not needed it would have been possible
 // to recursively call wa_tick instead of this block stack stuff.
-dwac_result dwac_setup_function_call(const dwac_prog *p, dwac_data *d, uint32_t function_idx)
+dwac_result dwac_setup_function_call(dwac_data *d, uint32_t function_idx)
 {
-	dbg("dwac_setup_function_call %d\n", function_idx);
+	dbg("dwac_setup_function_call %d %s\n", function_idx, dwac_get_func_name(d->p, function_idx));
+	const dwac_prog *p = d->p;
 	if (function_idx < p->funcs_vector.nof_imported) {return DWAC_CAN_NOT_CALL_IMPORTED_HERE;}
 	if (function_idx >= p->funcs_vector.total_nof) {return DWAC_FUNC_IDX_OUT_OF_RANGE;}
 	dwac_function *func = &p->funcs_vector.functions_array[function_idx];
@@ -1872,9 +1867,10 @@ dwac_result dwac_setup_function_call(const dwac_prog *p, dwac_data *d, uint32_t 
 	return DWAC_OK;
 }
 
-static dwac_result call_imported_function(const dwac_prog *p, dwac_data *d, uint32_t function_idx)
+static dwac_result call_imported_function(dwac_data *d, uint32_t function_idx)
 {
-	dbg("call_imported_function %d\n", function_idx);
+	dbg("call_imported_function %d %s\n", function_idx, dwac_get_func_name(d->p, function_idx));
+	const dwac_prog *p = d->p;
 	if (function_idx >= p->funcs_vector.nof_imported) {return DWAC_NOT_AN_IDX_OF_IMPORTED_FUNCTION;}
 	dwac_function *func = &p->funcs_vector.functions_array[function_idx];
 	assert(func && (func->func_type_idx >= 0));
@@ -1909,6 +1905,8 @@ static dwac_result call_imported_function(const dwac_prog *p, dwac_data *d, uint
 
 	d->fp = saved_frame_pointer;
 
+	dbg("done %d '%s'\n", function_idx, dwac_get_func_name(d->p, function_idx));
+
 	return DWAC_OK;
 }
 
@@ -1927,9 +1925,11 @@ const char* dwac_get_func_name(const dwac_prog *p, long function_idx)
 // This is then main state event machine that runs the program.
 // Returns DWAC_OK or DWAC_NEED_MORE_GAS if OK.
 // Something else if not OK.
-dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
+dwac_result dwac_tick(dwac_data *d)
 {
 	dbg("dwac_tick\n");
+
+	const dwac_prog *p = d->p;
 
 	assert(d->block_stack.size != 0);
 	if (d->stack[DWAC_STACK_CAPACITY - 1].s64 != WA_MAGIC_STACK_VALUE) {return DWAC_STACK_OVERFLOW;}
@@ -1975,7 +1975,7 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 				dwac_block_stack_entry *block = (dwac_block_stack_entry*) dwac_linear_storage_size_push(&d->block_stack);
 				block->block_type_code = dwac_block_type_block;
 				block->func_type_idx = blocktype;
-				block->block_and_loop_info.br_addr = find_br_addr(p, d, d->pc.pos);
+				block->block_and_loop_info.br_addr = find_br_addr(d, d->pc.pos);
 				block->stack_pointer = d->sp; // Or just set it to zero?
 
 				dbg("block\n");
@@ -2030,7 +2030,7 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 				// We could check condition and search for only one of those. But emscripten
 				// seems to not use if/else so that optimization will be of little use for now.
 
-				uint32_t addr = find_else_or_end(p, d, d->pc.pos);
+				uint32_t addr = find_else_or_end(d, d->pc.pos);
 				if (addr >= d->pc.nof) {return DWAC_ADDR_OUT_OF_RANGE;}
 
 				if (d->pc.array[addr] == 0x0b) // 0x0b = end
@@ -2043,7 +2043,7 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 				{
 					// An else was found so continue to find end also.
 					block->if_else_info.else_addr = addr;
-					uint32_t end_addr = find_else_or_end(p, d, block->if_else_info.else_addr + 1);
+					uint32_t end_addr = find_else_or_end(d, block->if_else_info.else_addr + 1);
 					if ((d->pc.array[end_addr] != 0x0b) || (end_addr >= d->pc.nof))
 					{
 						sprintf(d->exception, "%s", "No end in sight!");
@@ -2336,7 +2336,7 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 
 				if (function_idx < p->funcs_vector.nof_imported)
 				{
-					const long r = call_imported_function(p, d, function_idx);
+					const long r = call_imported_function(d, function_idx);
 					if (r)
 					{
 						return r;
@@ -2344,7 +2344,7 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 				}
 				else
 				{
-					long r = dwac_setup_function_call(p, d, function_idx);
+					long r = dwac_setup_function_call(d, function_idx);
 					if (r)
 					{
 						return r;
@@ -2388,6 +2388,8 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 				// Get function index via table.
 				const int64_t function_idx = p->func_table.array[idx_into_table];
 
+				dbg("call_indirect %lld '%s'\n", (long long int)function_idx, dwac_get_func_name(p, function_idx));
+
 				//  Check that its in range.
 				if (function_idx >= p->funcs_vector.total_nof)
 				{
@@ -2417,12 +2419,12 @@ dwac_result dwac_tick(const dwac_prog *p, dwac_data *d)
 				// Is it an imported or internal function to call?
 				if (function_idx < p->funcs_vector.nof_imported)
 				{
-					const long r = call_imported_function(p, d, function_idx);
+					const long r = call_imported_function(d, function_idx);
 					if (r) {return r;}
 				}
 				else
 				{
-					const int r = dwac_setup_function_call(p, d, function_idx);
+					const int r = dwac_setup_function_call(d, function_idx);
 					if (r) {return DWAC_INDIRECT_CALL_FAILED;}
 				}
 
@@ -3943,7 +3945,7 @@ static dwac_result run_init_expr(const dwac_prog *p, dwac_data *d, uint8_t type,
 
 	dbg("run_init_expr 0x%x 0x%x 0x%llx\n", d->fp, d->sp, (long long)d->pc.pos);
 
-	long r = dwac_tick(p, d);
+	long r = dwac_tick(d);
 
 	if ((r == DWAC_OK) && (d->sp == DWAC_SP_INITIAL))
 	{
@@ -4449,9 +4451,12 @@ dwac_result dwac_parse_prog_sections(dwac_prog *p, dwac_data *d, const uint8_t *
 }
 
 
-dwac_result dwac_parse_data_sections(const dwac_prog *p, dwac_data *d)
+dwac_result dwac_parse_data_sections(dwac_data *d)
 {
 	dbg("dwac_parse_data_sections\n");
+	assert(d);
+
+	const dwac_prog *p = d->p;
 
 	const size_t max_nof = 16 + p->bytecodes.nof/16;
 
@@ -4601,7 +4606,7 @@ dwac_result dwac_parse_data_sections(const dwac_prog *p, dwac_data *d)
 					}
 
 					// Run the init_expr to get the offset onto stack.
-					run_init_expr(p, d, DWAC_I32, section_len);
+					run_init_expr(d->p, d, DWAC_I32, section_len);
 					uint32_t offset = POP_U32(d);
 
 					uint32_t size = leb_read(&d->pc, 32);
@@ -4656,7 +4661,7 @@ dwac_result dwac_parse_data_sections(const dwac_prog *p, dwac_data *d)
 		}
 		else
 		{
-			dwac_setup_function_call(p, d, p->start_function_idx);
+			dwac_setup_function_call(d, p->start_function_idx);
 		}
 	}
 
@@ -4725,11 +4730,11 @@ dwac_result dwac_set_command_line_arguments(dwac_data *d, uint32_t argc, const c
 	return DWAC_OK;
 }
 
-dwac_result dwac_call_exported_function(const dwac_prog *p, dwac_data *d, uint32_t func_idx)
+dwac_result dwac_call_exported_function(dwac_data *d, uint32_t func_idx)
 {
-	dwac_result r = dwac_setup_function_call(p, d, func_idx);
+	dwac_result r = dwac_setup_function_call(d, func_idx);
 	if (r) {return r;}
-	return dwac_tick(p, d);
+	return dwac_tick(d);
 }
 
 // Environment shall call this to register all available functions.
@@ -4756,7 +4761,7 @@ int dwac_get_return_value(const dwac_data *d)
 	return (STACK_SIZE(d) > 0) ? (d->stack[d->sp].s64) : 0;
 }
 
-void dwac_log_result(const dwac_prog *p, const dwac_data *d, const dwac_function *f, FILE* log)
+void dwac_log_result(const dwac_data *d, const dwac_function *f, FILE* log)
 {
 	dbg("report_result\n");
 	assert(log);
@@ -4766,7 +4771,7 @@ void dwac_log_result(const dwac_prog *p, const dwac_data *d, const dwac_function
 	// Log the values on stack, topmost value first here.
 	dwac_stack_pointer_type i = d->sp;
 	while (i != DWAC_SP_INITIAL) {
-		const dwac_func_type_type* type = dwac_get_func_type_ptr(p, f->func_type_idx);
+		const dwac_func_type_type* type = dwac_get_func_type_ptr(d->p, f->func_type_idx);
 		uint32_t nof_results = type->nof_results;
 		if (i < nof_results)
 		{
@@ -4787,7 +4792,7 @@ void dwac_log_result(const dwac_prog *p, const dwac_data *d, const dwac_function
 }
 
 #ifdef LOG_FUNC_NAMES
-void dwac_log_block_stack(const dwac_prog *p, dwac_data *d)
+void dwac_log_block_stack(dwac_data *d)
 {
 	printf("call stack:\n");
 	for(;;)
@@ -4799,14 +4804,14 @@ void dwac_log_block_stack(const dwac_prog *p, dwac_data *d)
 			case dwac_block_type_internal_func:
 			case dwac_block_type_imported_func:
 			{
-				printf("%4d %s\n", e->func_info.func_idx, dwac_get_func_name(p, e->func_info.func_idx));
+				printf("%4d %s\n", e->func_info.func_idx, dwac_get_func_name(d->p, e->func_info.func_idx));
 				break;
 			}
 			default:
 				break;
 		}
 	}
-	if (p->func_names.size == 0)
+	if (d->p->func_names.size == 0)
 	{
 		printf("Recompile guest app with '-g' option for call stack with names:\n");
 	}
@@ -4817,7 +4822,6 @@ void dwac_log_block_stack(const dwac_prog *p, dwac_data *d)
 	printf("Hint: Recompile dwac/dwae with LOG_FUNC_NAMES macro to display call stack.\n");
 }
 #endif
-
 
 void dwac_prog_deinit(dwac_prog *p)
 {
@@ -4886,12 +4890,18 @@ void dwac_prog_deinit(dwac_prog *p)
  }
  */
 
-void dwac_data_init(dwac_data *d)
+void dwac_data_init(dwac_data *d, const dwac_prog* p)
 {
 	dbg("dwac_data_init\n");
 	memset(d, 0, sizeof(dwac_data));
 
 	dbg("sizeof(wa_value_type) %zu\n", sizeof(dwac_value_type));
+
+	d->p = p;
+
+	#ifdef LOOKUP_HASH_INIT_CAPACITY
+	dwac_lookup_hash_init(&d->lookup);
+	#endif
 
 	// Put some magic number in the far end of stack.
 	// For performance reasons we don't check for stack overflow at every push or pop.
@@ -4935,6 +4945,10 @@ void dwac_data_deinit(dwac_data *d, FILE* log)
 	dwac_linear_storage_size_deinit(&d->block_stack);
 	dwac_linear_storage_8_deinit(&d->memory.lower_mem);
 	dwac_virtual_storage_deinit(&d->memory.upper_mem);
+
+	#ifdef LOOKUP_HASH_INIT_CAPACITY
+	dwac_lookup_hash_deinit(&d->lookup);
+	#endif
 
 	memset(d, 0, sizeof(dwac_data));
 }

@@ -131,7 +131,7 @@ static int is_param_ok(dwac_data *d, int expected_nof_params)
 
 /*uint32_fd_write(int32_t  fd, uint32_t iovs_offset, uint32_t iovs_len, uint32_t nwritten_offset);*/
 // https://wasix.org/docs/api-reference/wasi/fd_write
-static void wa_fd_write(dwac_data *d)
+static void dwae_fd_write(dwac_data *d)
 {
 	if (!is_param_ok(d, 4)) {return;}
 
@@ -224,6 +224,32 @@ static void emscripten_resize_heap(dwac_data *d)
 	dwac_push_value_i64(d, d->memory.current_size_in_pages * DWAC_PAGE_SIZE);
 }
 
+// TODO Have not found a specification for what this one shall do.
+// Search at emscripten.org gave no hit.
+// Closest hit using bing/google was this:
+// https://docs.rs/emscripten-functions-sys/latest/emscripten_functions_sys/emscripten/fn.emscripten_asm_const_int.html
+/*pub unsafe extern "C" fn emscripten_asm_const_int(
+    code: *const c_char,
+    arg_sigs: *const c_char,
+    ...
+) -> c_int*/
+/*static void emscripten_asm_const_int(dwac_data *ctx)
+{
+	// TODO The rust definition (see "..." above) seem to suggest the number of parameters can vary.
+	if (!is_param_ok(d, 3)) {return;}
+
+	// POP last parameter first. All three seems to be pointers.
+	uint32_t p3 = dwac_pop_value_i64(ctx);
+    uint32_t arg_sigs = dwac_pop_value_i64(ctx);
+    uint32_t code = dwac_pop_value_i64(ctx);
+
+	snprintf(ctx->exception, sizeof(ctx->exception), "Not implemented: env/emscripten_asm_const_int %d %d %d", code, arg_sigs, p3);
+
+    // push return value. TODO What shall the value be.
+	dwac_push_value_i64(ctx, 0);
+}*/
+
+
 #if 0
 // https://stackoverflow.com/questions/67498446/how-to-pass-command-line-arguments-to-c-code-with-webassembly-and-js
 // In that case you would want to call _start rather than main
@@ -302,7 +328,7 @@ static void drekkar_wart_version(dwac_data *d)
 // https://man7.org/linux/man-pages/man2/open.2.html
 // int open(const char *pathname, int flags, mode_t mode);
 // Remember last argument pops up first.
-static void syscall_open(dwac_data *d)
+static void dwae_syscall_open(dwac_data *d)
 {
 	if (!is_param_ok(d, 3)) {return;}
 
@@ -323,7 +349,7 @@ static void syscall_open(dwac_data *d)
 
 // Not tested.
 // 'env/__syscall_fcntl64' param i32 i32 i32, result i32'
-static void syscall_fcntl64(dwac_data *d)
+static void dwae_syscall_fcntl64(dwac_data *d)
 {
 	if (!is_param_ok(d, 3)) {return;}
 
@@ -349,7 +375,7 @@ static void syscall_fcntl64(dwac_data *d)
 // Some constants, including ...
 //
 //
-static void syscall_ioctl(dwac_data *d)
+static void dwae_syscall_ioctl(dwac_data *d)
 {
 	int nof_parameters_given = nof_parameters_on_stack(d);
 	if (nof_parameters_given < 3)
@@ -398,7 +424,7 @@ static void syscall_ioctl(dwac_data *d)
 //
 // The implementation below is not as described above but is
 // tested using emscripten.
-static void fd_read(dwac_data *d)
+static void dwae_fd_read(dwac_data *d)
 {
 	if (!is_param_ok(d, 4)) {return;}
 	long n = 0;
@@ -454,7 +480,7 @@ static void fd_read(dwac_data *d)
 
 // 'wasi_snapshot_preview1/fd_close' param i32, result i32'
 //  (import "wasi_snapshot_preview1" "fd_close" (func $fimport$7 (param i32) (result i32)))
-static void fd_close(dwac_data *d)
+static void dwae_fd_close(dwac_data *d)
 {
 	if (!is_param_ok(d, 1)) {return;}
 
@@ -469,7 +495,7 @@ static void fd_close(dwac_data *d)
 
 // Not tested.
 // 'env/__syscall_getcwd' param i32 i32, result i32'
-static void syscall_getcwd(dwac_data *d)
+static void dwae_syscall_getcwd(dwac_data *d)
 {
 	if (!is_param_ok(d, 2)) {return;}
 
@@ -485,7 +511,7 @@ static void syscall_getcwd(dwac_data *d)
 // Not tested.
 // 'env/__syscall_readlink' param i32 i32 i32, result i32'
 // ssize_t readlink(const char *restrict pathname, char *restrict buf, size_t bufsiz);
-static void syscall_readlink(dwac_data *d)
+static void dwae_syscall_readlink(dwac_data *d)
 {
 	if (!is_param_ok(d, 3)) {return;}
 
@@ -505,7 +531,7 @@ static void syscall_readlink(dwac_data *d)
 
 // Not tested.
 // 'env/__syscall_fstat64' param i32 i32, result i32'
-static void syscall_fstat64(dwac_data *d)
+static void dwae_syscall_fstat64(dwac_data *d)
 {
 	if (!is_param_ok(d, 2)) {return;}
 
@@ -537,7 +563,7 @@ struct linux_dirent {
 #endif
 
 
-struct guest_stat {
+struct dwae_guest_stat {
     uint32_t st_dev;
     uint32_t padding;
     uint32_t st_ino;
@@ -551,7 +577,7 @@ struct guest_stat {
 // https://gist.github.com/mejedi/e0a5ee813c88effaa146ad6bd65fc482
 // When I was experimenting here it turned out someone else was also at same time:
 // https://github.com/emscripten-core/emscripten/issues/20840
-static void syscall_stat64(dwac_data *d)
+static void dwae_syscall_stat64(dwac_data *d)
 {
 	if (!is_param_ok(d, 2)) {return;}
 
@@ -565,7 +591,7 @@ static void syscall_stat64(dwac_data *d)
 
 	#elif 1
 
-	struct guest_stat *statbuf = (struct guest_stat *)dwac_translate_to_host_addr_space(d, dwac_pop_value_i64(d), sizeof(struct guest_stat));
+	struct dwae_guest_stat *statbuf = (struct dwae_guest_stat *)dwac_translate_to_host_addr_space(d, dwac_pop_value_i64(d), sizeof(struct dwae_guest_stat));
 	const char* pathname = (const char*)dwac_translate_to_host_addr_space(d, dwac_pop_value_i64(d), 256);
 
 	struct stat sb;
@@ -599,7 +625,7 @@ static void syscall_stat64(dwac_data *d)
 // Not implemented.
 // 'env/__syscall_lstat64' param i32 i32, result i32'
 // int __syscall_lstat64(intptr_t path, intptr_t buf);
-static void syscall_lstat64(dwac_data *d)
+static void dwae_syscall_lstat64(dwac_data *d)
 {
 	if (!is_param_ok(d, 2)) {return;}
 
@@ -616,7 +642,7 @@ static void syscall_lstat64(dwac_data *d)
 // Not implemented.
 // 'env/__syscall_fstatat64' param i32 i32 i32 i32, result i32'
 //  (import "env" "__syscall_fstatat64" (func $fimport$12 (param i32 i32 i32 i32) (result i32)))
-static void syscall_fstatat64(dwac_data *d)
+static void dwae_syscall_fstatat64(dwac_data *d)
 {
 	if (!is_param_ok(d, 4)) {return;}
 
@@ -633,7 +659,7 @@ static void syscall_fstatat64(dwac_data *d)
 
 // Not implemented.
 // 'wasi_snapshot_preview1/fd_seek' param i32 i32 i32 i32 i32, result i32'
-static void fd_seek(dwac_data *ctx)
+static void dwae_fd_seek(dwac_data *ctx)
 {
 	if (!is_param_ok(ctx, 5)) {return;}
 
@@ -649,7 +675,7 @@ static void fd_seek(dwac_data *ctx)
 	dwac_push_value_i64(ctx, 0);
 }
 
-static size_t wa_get_command_line_arguments_string_size(uint32_t argc, const char **argv)
+static size_t dwae_get_command_line_arguments_string_size(uint32_t argc, const char **argv)
 {
 	size_t tot_arg_size = 0;
 	for (int i = 0; i < argc; ++i)
@@ -669,7 +695,7 @@ static void put32(uint8_t *ptr, uint32_t v)
 }
 
 // https://wasix.org/docs/api-reference/wasi/args_sizes_get
-static void args_sizes_get(dwac_data *ctx)
+static void dwae_args_sizes_get(dwac_data *ctx)
 {
 	if (!is_param_ok(ctx, 2)) {return;}
 
@@ -680,7 +706,7 @@ static void args_sizes_get(dwac_data *ctx)
 	uint32_t* argv_buf_size_ptr = (uint32_t*)dwac_translate_to_host_addr_space(ctx, argv_buf_size, 4);
 
 	*argc_ptr = ctx->dwac_emscripten_argc;
-	*argv_buf_size_ptr = wa_get_command_line_arguments_string_size(ctx->dwac_emscripten_argc, ctx->dwac_emscripten_argv);
+	*argv_buf_size_ptr = dwae_get_command_line_arguments_string_size(ctx->dwac_emscripten_argc, ctx->dwac_emscripten_argv);
 
 	dbg("args_sizes_get %u %u %d %zu\n", argc, argv_buf_size, ctx->dwac_emscripten_argc, ctx->memory.arguments.size);
 
@@ -688,7 +714,7 @@ static void args_sizes_get(dwac_data *ctx)
 }
 
 // https://wasix.org/docs/api-reference/wasi/args_get
-static void args_get(dwac_data *ctx)
+static void dwae_args_get(dwac_data *ctx)
 {
 	if (!is_param_ok(ctx, 2)) {return;}
 
@@ -730,7 +756,7 @@ static void args_get(dwac_data *ctx)
 }
 
 // https://wasix.org/docs/api-reference/wasi/proc_exit
-static void proc_exit(dwac_data *ctx)
+static void dwae_proc_exit(dwac_data *ctx)
 {
 	if (!is_param_ok(ctx, 1)) {return;}
 
@@ -744,7 +770,7 @@ static void proc_exit(dwac_data *ctx)
 // fd, buf, BUF_SIZE
 // https://linux.die.net/man/2/getdents64
 // int getdents(unsigned int fd, struct linux_dirent *dirp, unsigned int count);
-static void syscall_getdents64(dwac_data *d)
+static void dwae_syscall_getdents64(dwac_data *d)
 {
 	if (!is_param_ok(d, 3)) {return;}
 
@@ -782,13 +808,13 @@ static void register_functions(dwac_prog *p)
 {
 	dbg("register_functions\n");
 
-	dwac_register_function(p, "wasi_snapshot_preview1/fd_write", wa_fd_write);
-	dwac_register_function(p, "wasi_snapshot_preview1/fd_read", fd_read);
-	dwac_register_function(p, "wasi_snapshot_preview1/fd_close", fd_close);
-	dwac_register_function(p, "wasi_snapshot_preview1/fd_seek", fd_seek);
-	dwac_register_function(p, "wasi_snapshot_preview1/args_sizes_get", args_sizes_get);
-	dwac_register_function(p, "wasi_snapshot_preview1/args_get", args_get);
-	dwac_register_function(p, "wasi_snapshot_preview1/proc_exit", proc_exit);
+	dwac_register_function(p, "wasi_snapshot_preview1/fd_write", dwae_fd_write);
+	dwac_register_function(p, "wasi_snapshot_preview1/fd_read", dwae_fd_read);
+	dwac_register_function(p, "wasi_snapshot_preview1/fd_close", dwae_fd_close);
+	dwac_register_function(p, "wasi_snapshot_preview1/fd_seek", dwae_fd_seek);
+	dwac_register_function(p, "wasi_snapshot_preview1/args_sizes_get", dwae_args_sizes_get);
+	dwac_register_function(p, "wasi_snapshot_preview1/args_get", dwae_args_get);
+	dwac_register_function(p, "wasi_snapshot_preview1/proc_exit", dwae_proc_exit);
 
 	dwac_register_function(p, "env/__assert_fail", assert_fail);
 	dwac_register_function(p, "env/emscripten_memcpy_big", memcpy_big);
@@ -796,17 +822,19 @@ static void register_functions(dwac_prog *p)
 	dwac_register_function(p, "env/emscripten_memcpy_js", memcpy_big);
 	dwac_register_function(p, "env/setTempRet0", setTempRet0);
 	dwac_register_function(p, "env/getTempRet0", getTempRet0);
-	dwac_register_function(p, "env/__syscall_open", syscall_open);
-	dwac_register_function(p, "env/__syscall_fcntl64", syscall_fcntl64);
-	dwac_register_function(p, "env/__syscall_ioctl", syscall_ioctl);
-	dwac_register_function(p, "env/__syscall_getcwd", syscall_getcwd);
-	dwac_register_function(p, "env/__syscall_readlink", syscall_readlink);
-	dwac_register_function(p, "env/__syscall_fstat64", syscall_fstat64);
-	dwac_register_function(p, "env/__syscall_stat64", syscall_stat64);
-	dwac_register_function(p, "env/__syscall_fstatat64", syscall_fstatat64);
-	dwac_register_function(p, "env/__syscall_lstat64", syscall_lstat64);
+	//dwac_register_function(p, "env/emscripten_asm_const_int", emscripten_asm_const_int);
+
+	dwac_register_function(p, "env/__syscall_open", dwae_syscall_open);
+	dwac_register_function(p, "env/__syscall_fcntl64", dwae_syscall_fcntl64);
+	dwac_register_function(p, "env/__syscall_ioctl", dwae_syscall_ioctl);
+	dwac_register_function(p, "env/__syscall_getcwd", dwae_syscall_getcwd);
+	dwac_register_function(p, "env/__syscall_readlink", dwae_syscall_readlink);
+	dwac_register_function(p, "env/__syscall_fstat64", dwae_syscall_fstat64);
+	dwac_register_function(p, "env/__syscall_stat64", dwae_syscall_stat64);
+	dwac_register_function(p, "env/__syscall_fstatat64", dwae_syscall_fstatat64);
+	dwac_register_function(p, "env/__syscall_lstat64", dwae_syscall_lstat64);
 	#ifndef __EMSCRIPTEN__
-	dwac_register_function(p, "env/__syscall_getdents64", syscall_getdents64);
+	dwac_register_function(p, "env/__syscall_getdents64", dwae_syscall_getdents64);
 	#endif
 
 	dwac_register_function(p, "drekkar/wart_version", drekkar_wart_version);
@@ -832,7 +860,7 @@ static dwac_result check_exception(const dwac_prog *p, dwac_data *d, dwac_result
 			else
 			{
 				printf("exception %d '%s'\n", r, d->exception);
-				dwac_log_block_stack(p, d);
+				dwac_log_block_stack(d);
 				log_data_stack(d);
 			}
 			break;
@@ -842,14 +870,14 @@ static dwac_result check_exception(const dwac_prog *p, dwac_data *d, dwac_result
 			if (d->exception[0] != 0)
 			{
 				printf("Unhandled exception '%s'\n", d->exception);
-				dwac_log_block_stack(p, d);
+				dwac_log_block_stack(d);
 				log_data_stack(d);
 				return DWAC_EXCEPTION;
 			}
 			else if (dwac_total_memory_usage(d) > MAX_MEM_QUOTA)
 			{
 				printf("To much memory used %lld > %d\n", dwac_total_memory_usage(d), MAX_MEM_QUOTA);
-				dwac_log_block_stack(p, d);
+				dwac_log_block_stack(d);
 				log_data_stack(d);
 				return DWAC_MAX_MEM_QUOTA_EXCEEDED;
 			}
@@ -893,7 +921,7 @@ static long parse_prog_sections(dwac_prog *p, dwac_data *d, uint8_t *bytes, size
 static dwac_result parse_data_sections(const dwac_prog *p, dwac_data *d)
 {
 	dbg("parse_data_sections\n");
-	const long r = dwac_parse_data_sections(p, d);
+	const long r = dwac_parse_data_sections(d);
 	return check_exception(p, d, r);;
 }
 
@@ -901,7 +929,7 @@ static dwac_result call_and_run_exported_function(const dwac_prog *p, dwac_data 
 {
 	dbg("call_and_run_exported_function\n");
 	long long total_gas_usage = 0;
-	dwac_result r = dwac_call_exported_function(p, d, f->func_idx);
+	dwac_result r = dwac_call_exported_function(d, f->func_idx);
 	for(;;)
 	{
 		total_gas_usage += (DWAC_GAS - d->gas_meter);
@@ -910,14 +938,14 @@ static dwac_result call_and_run_exported_function(const dwac_prog *p, dwac_data 
 		{
 			case DWAC_NEED_MORE_GAS:
 				// Guest has more work to do. Let it continue some more.
-				r = dwac_tick(p, d);
+				r = dwac_tick(d);
 				break;
 			case DWAC_OK:
 			case DWAC_EXIT:
 				// Guest is done.
 				if (log)
 				{
-					dwac_log_result(p, d, f, log);
+					dwac_log_result(d, f, log);
 					fprintf(log, "Total gas and memory usage: %lld %lld\n", total_gas_usage, dwac_total_memory_usage(d));
 				}
 				return r;
@@ -934,7 +962,7 @@ static dwac_result call_errno(dwac_env_type *e)
 	const dwac_function* f = dwac_find_exported_function(e->p, "__errno_location");
 	if (f != NULL)
 	{
-		long r  = dwac_call_exported_function(e->p, e->d, f->func_idx);
+		long r  = dwac_call_exported_function(e->d, f->func_idx);
 		e->d->errno_location = dwac_pop_value_i64(e->d);
 		return r;
 	}
@@ -947,7 +975,7 @@ static dwac_result call_ctors(const dwac_prog *p, dwac_data *d)
 	const dwac_function* f = dwac_find_exported_function(p, "__wasm_call_ctors");
 	if (f != NULL)
 	{
-		return dwac_call_exported_function(p, d, f->func_idx);
+		return dwac_call_exported_function(d, f->func_idx);
 	}
 	return DWAC_OK;
 }
@@ -1006,10 +1034,12 @@ dwac_result dwae_init(dwac_env_type *e)
 	}
 	#endif
 
+	dwac_st_init();
+
 	dbg("dwae_init\n");
 	dwac_result r = DWAC_OK;
 
-	dwac_st_init();
+
 	e->p = DWAC_ST_MALLOC(sizeof(dwac_prog));
 	e->d = DWAC_ST_MALLOC(sizeof(dwac_data));
 
@@ -1032,7 +1062,7 @@ dwac_result dwae_init(dwac_env_type *e)
 	}
 
 	dwac_prog_init(e->p);
-	dwac_data_init(e->d);
+	dwac_data_init(e->d, e->p);
 
 	register_functions(e->p);
 
